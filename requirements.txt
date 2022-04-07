@@ -1,3 +1,5 @@
 git+https://github.com/m-labs/migen@ac703010eaa06ac9b6e32f97c6fa98b15de22b31
 git+https://github.com/no2fpga/no2migen@676aafaf46ed0ea9e2f3c2d81a6e9f1bc9b1a649
+git+https://github.com/litex-hub/litex-boards@dd27a3473bfec98ccf1644a118531eba260a7262
+git+https://github.com/enjoy-digital/litex@f224036138b1dbecba294b75378c949f4b5538a1
 pyserial==3.5

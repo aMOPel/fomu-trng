@@ -1,44 +1,47 @@
 from serial import Serial
+from serial.tools.list_ports import grep
 import unittest
 
-START_CHAR = 'b'.encode('utf-8')
-END_CHAR = 'e'.encode('utf-8')
+START_CHAR = b'b'
+END_CHAR = b'e'
 
 
 def start_trng(ser: Serial):
-    assert ser.is_open, 'ser has to be open'
     ser.write(START_CHAR)
 
 
 def read_trng(ser: Serial, amount_bytes: int) -> bytes:
-    assert ser.is_open, 'ser has to be open'
-    result = ser.read_until(size=amount_bytes)
+    result = ser.read_until('', amount_bytes)
     return result
 
 
 def end_trng(ser: Serial):
-    assert ser.is_open, 'ser has to be open'
     ser.write(END_CHAR)
 
 class TrngTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.ser = Serial('/dev/ttyACM0', timeout=1)
-        self.ser.open()
+        # print(grep('ttyACM'))
+        self.ser = Serial('/dev/ttyACM0', timeout=10)
+        if not self.ser.is_open:
+            self.ser.open()
 
     def tearDown(self):
         assert self.ser.is_open
         self.ser.close()
 
     def test_cycle(self):
-        amount_bytes = 64
+        amount_bytes = 2**7
 
         start_trng(self.ser)
         result = read_trng(self.ser, amount_bytes)
         end_trng(self.ser)
 
-        for byte, i in result, range(amount_bytes):
-            assert(int(byte) == i)
+        # print(result)
+        # print(len(result))
+        # numbers are incrementing from 0 to 127
+        for i, byte in enumerate(result):
+            assert int(byte) == i
 
 
 if __name__ == '__main__':
