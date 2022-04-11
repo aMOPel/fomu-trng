@@ -90,12 +90,12 @@ class LoopbackTest(Module):
 
         self.comb += [
             # muacm.in_data.eq(muacm.out_data),
-            # muacm.in_last.eq(0),
+            muacm.in_last.eq(0),
             # muacm.in_valid.eq(muacm.out_valid),
             # muacm.out_ready.eq(muacm.in_ready),
             muacm.out_ready.eq(1),
             muacm.in_flush_time.eq(0),
-            # muacm.in_flush_now.eq(0),
+            muacm.in_flush_now.eq(0),
         ]
 
         fsm = FSM(reset_state="IDLE")
@@ -109,8 +109,8 @@ class LoopbackTest(Module):
             NextValue(counter, 0),
             NextValue(muacm.in_data, 0),
             NextValue(muacm.in_valid, 0),
-            NextValue(muacm.in_last, 0),
-            NextValue(muacm.in_flush_now, 0),
+            # NextValue(muacm.in_last, 0),
+            # NextValue(muacm.in_flush_now, 1),
             If(
                 muacm.out_data == START_CHAR,
                 NextState("SENDING"),
@@ -125,8 +125,14 @@ class LoopbackTest(Module):
                 NextValue(counter, counter + 1),
                 NextValue(muacm.in_data, counter),
                 NextValue(muacm.in_valid, 1),
-                NextValue(muacm.in_last, 1),
-                NextValue(muacm.in_flush_now, 1),
+                # NextValue(muacm.in_last, 1),
+                # NextValue(muacm.in_flush_now, 1),
+            ).Else(
+                NextValue(muacm.in_data, 0),
+                NextValue(muacm.in_valid, 0),
+                NextValue(muacm.in_last, 0),
+                NextValue(muacm.in_flush_now, 0),
+
             ),
             If(
                 muacm.out_data == END_CHAR,
