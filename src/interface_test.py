@@ -1,5 +1,5 @@
 from serial import Serial
-from serial.tools.list_ports import grep
+from serial.tools.list_ports import comports
 import unittest
 
 START_CHAR = b'b'
@@ -21,8 +21,11 @@ def end_trng(ser: Serial):
 class TrngTestCase(unittest.TestCase):
 
     def setUp(self):
-        # print(grep('ttyACM'))
-        self.ser = Serial('/dev/ttyACM0', timeout=10)
+        # pick the right device
+        for port in comports():
+            if port.description == 'μacm':
+                device = port.device
+        self.ser = Serial(device, timeout=10)
         if not self.ser.is_open:
             self.ser.open()
 
