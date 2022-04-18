@@ -1,14 +1,13 @@
 from serial import Serial
-from serial.tools.list_ports import grep
+from serial.tools.list_ports import comports
 import unittest
+import time
 
 START_CHAR = b'b'
 END_CHAR = b'e'
 
 
 def start_trng(ser: Serial):
-    if not ser.is_open:
-        ser.open()
     ser.write(START_CHAR)
 
 
@@ -17,40 +16,43 @@ def read_trng(ser: Serial, amount_bytes: int) -> bytes:
     return result
 
 
-def end_trng(ser: Serial):
-    if ser.is_open:
-        ser.write(END_CHAR)
-        # ser.flush()
-        # ser.reset_input_buffer()
-        # ser.reset_output_buffer()
-        # ser.set_input_flow_control(False)
-        ser.close()
+def stop_trng(ser: Serial):
+    ser.write(END_CHAR)
 
 class TrngTestCase(unittest.TestCase):
 
     def setUp(self):
-        # print(grep('ttyACM'))
-        self.ser = Serial('/dev/ttyACM0', timeout=10)
-        # if not self.ser.is_open:
-        #     self.ser.open()
+        # pick the right device
+        for port in comports():
+            if port.description == 'μacm':
+                device = port.device
+        assert device, 'muacm device not found'
+        self.ser = Serial(device, timeout=10)
+        if not self.ser.is_open:
+            self.ser.open()
 
-    # def tearDown(self):
-    #     assert self.ser.is_open
-    #     self.ser.reset_input_buffer()
-    #     self.ser.close()
+    def tearDown(self):
+        assert self.ser.is_open
+        self.ser.close()
 
     def test_cycle(self):
-        amount_bytes = 2**7
+        # ascii is 7 bits long, to send every sign once you need to sen 128 times
+        data_size = 2**7
+        iterations = 100
 
-        start_trng(self.ser)
-        result = read_trng(self.ser, amount_bytes)
-        end_trng(self.ser)
+        
+        for j in range(iterations):
+            print(j)
+            start_trng(self.ser)
+            result = read_trng(self.ser, data_size)
+            # time.sleep(0.01)
+            stop_trng(self.ser)
+            print(result)
+            print(len(result))
+            for i, byte in enumerate(result):
+                assert int(byte) == i
 
-        print(result)
-        print(len(result))
         # numbers are incrementing from 0 to 127
-        for i, byte in enumerate(result):
-            assert int(byte) == i
 
 
 if __name__ == '__main__':

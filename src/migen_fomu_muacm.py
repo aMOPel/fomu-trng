@@ -85,58 +85,72 @@ class LoopbackTest(Module):
 
         rgb_pins = platform.request('rgb_led')
 
-        START_CHAR = ord('b')
-        END_CHAR = ord('e')
+        self.START_CHAR = ord('b')
+        self.END_CHAR = ord('e')
 
         self.comb += [
             # muacm.in_data.eq(muacm.out_data),
-            muacm.in_last.eq(0),
+            # muacm.in_last.eq(0),
             # muacm.in_valid.eq(muacm.out_valid),
             # muacm.out_ready.eq(muacm.in_ready),
             muacm.out_ready.eq(1),
             muacm.in_flush_time.eq(0),
-            muacm.in_flush_now.eq(0),
+            # muacm.in_flush_now.eq(0),
         ]
 
         fsm = FSM(reset_state="IDLE")
         self.submodules += fsm
 
-        counter = Signal(8)
+
+        FRAME_SIZE_BITS = 7
+        counter = Signal(FRAME_SIZE_BITS)
+        end_soon = Signal(1)
+        frame_done = Signal(1)
 
         fsm.act(
             "IDLE",
             red_pwm.eq(0),
+            green_pwm.eq(0),
+            blue_pwm.eq(0),
             NextValue(counter, 0),
+            NextValue(end_soon, 0),
+            NextValue(frame_done, 0),
             NextValue(muacm.in_data, 0),
             NextValue(muacm.in_valid, 0),
-            # NextValue(muacm.in_last, 0),
-            # NextValue(muacm.in_flush_now, 1),
+            NextValue(muacm.in_last, 0),
+            NextValue(muacm.in_flush_now, 1),
             If(
-                muacm.out_data == START_CHAR,
+                muacm.out_data == self.START_CHAR,
                 NextState("SENDING"),
             ),
         )
 
         fsm.act(
             "SENDING",
-            red_pwm.eq(1),
+            NextValue(muacm.in_flush_now, 0),
+            # NextValue(muacm.in_last, 0),
             If(
+                end_soon & frame_done,
+                NextValue(counter, 0),
+                NextValue(muacm.in_data, 0),
+                NextValue(muacm.in_valid, 0),
+                NextState("IDLE"),
+            ).Elif(
                 muacm.in_ready,
                 NextValue(counter, counter + 1),
                 NextValue(muacm.in_data, counter),
                 NextValue(muacm.in_valid, 1),
-                # NextValue(muacm.in_last, 1),
-                # NextValue(muacm.in_flush_now, 1),
-            ).Else(
-                NextValue(muacm.in_data, 0),
-                NextValue(muacm.in_valid, 0),
-                NextValue(muacm.in_last, 0),
-                NextValue(muacm.in_flush_now, 0),
-
             ),
             If(
-                muacm.out_data == END_CHAR,
-                NextState("IDLE"),
+                muacm.out_data == self.END_CHAR,
+                NextValue(end_soon, 1),
+            ),
+            If(
+                counter == ((2**FRAME_SIZE_BITS) - 1),
+                NextValue(frame_done, 1),
+                NextValue(muacm.in_last, 1),
+            ).Else(
+                NextValue(muacm.in_last, 0),
             ),
         )
 
