@@ -87,6 +87,39 @@ class AcmController(Module):
 
         rgb_pins = platform.request('rgb_led')
 
+        trng_data = Signal(8)
+        trng_valid = Signal(1)
+        trng_enable = Signal(1)
+
+        ip_path = './neoTRNG/rtl/neoTRNG.v'
+        # ip_path = os.path.abspath(ip_path)	# Work around migen's stupidity
+        # print(ip_path)
+        platform.add_source(ip_path)
+
+        self.specials += Instance(
+            "neoTRNG",
+            # p_NUM_CELLS     = '0b11',
+            # p_NUM_INV_START = '0b11',
+            # p_NUM_INV_INC   = '0b10',
+            # p_NUM_INV_DELAY = '0b10',
+            # p_POST_PROC_EN  = '0b0',
+            # p_IS_SIM        = '0b0',
+            i_clk_i    = self.cd_sys.clk,
+            i_enable_i = trng_enable,
+            o_data_o   = trng_data,
+            o_valid_o  = trng_valid,
+        )
+
+        # self.sync += [
+        #     If(
+        #         trng_valid,
+        #         red_pwm.eq(1),
+        #     ).Else(
+        #         red_pwm.eq(0),
+        #     )
+        # ]
+
+
         self.START_CHAR = ord('b')
         self.END_CHAR = ord('e')
 
@@ -107,11 +140,32 @@ class AcmController(Module):
         FRAME_SIZE_BITS = 7
         counter = Signal(FRAME_SIZE_BITS)
 
+        boot_counter = Signal(11)
+        booted = Signal(1)
+
         fsm.act(
-            "IDLE",
-            red_pwm.eq(0),
+            "BOOTING",
+            red_pwm.eq(1),
             green_pwm.eq(0),
             blue_pwm.eq(0),
+            NextValue(boot_counter, boot_counter + 1),
+            If(
+                boot_counter == 0b111_1111_1111,
+                NextState("IDLE"),
+            ),
+        )
+
+        fsm.act(
+            "IDLE",
+            If(
+                booted == 0,
+                NextValue(booted, 1),
+                NextState("BOOTING"),
+            ),
+            red_pwm.eq(0),
+            green_pwm.eq(1),
+            blue_pwm.eq(0),
+            NextValue(trng_enable, 0),
             NextValue(counter, 0),
             NextValue(muacm.in_data, 0),
             NextValue(muacm.in_valid, 0),
@@ -123,13 +177,21 @@ class AcmController(Module):
             ),
         )
 
+        buffer = Signal(8)
+
         fsm.act(
             "SENDING",
             red_pwm.eq(0),
             green_pwm.eq(0),
-            blue_pwm.eq(0),
+            blue_pwm.eq(1),
             NextValue(muacm.in_flush_now, 0),
+            NextValue(trng_enable, 1),
             # NextValue(muacm.in_last, 0),
+            If(
+                trng_valid,
+                buffer.eq(trng_data),
+            ),
+
             If(
                 muacm.out_data == self.END_CHAR,
                 NextValue(counter, 0),
@@ -140,9 +202,14 @@ class AcmController(Module):
                 NextState("IDLE"),
             ).Elif(
                 muacm.in_ready,
-                NextValue(counter, counter + 1),
-                NextValue(muacm.in_data, counter),
-                NextValue(muacm.in_valid, 1),
+                If(
+                    buffer != 0b0000_0000,
+                    NextValue(muacm.in_data, buffer),
+                    NextValue(muacm.in_valid, 1),
+                ).Else(
+                    NextValue(muacm.in_data, 0b1111_1111),
+                    NextValue(muacm.in_valid, 1),
+                ),
                 # NextValue(muacm.in_last, 0),
                 # NextValue(muacm.in_flush_now, 0),
             ),
@@ -186,5 +253,8 @@ if __name__ == "__main__":
     # from migen.build.platforms import icebreaker
     from litex_boards.platforms import kosagi_fomu_pvt
     plat = kosagi_fomu_pvt.Platform()
-    plat.build(LoopbackTest(plat))
+    plat.build(
+        AcmController(plat),
+        ignoreloops=True
+    )
     # plat.create_programmer().flash(0, "build/top.bin")

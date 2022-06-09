@@ -1,0 +1,11 @@
+# convert trng to verilog
+yosys -m ghdl -p 'ghdl ./neoTRNG/rtl/neoTRNG.vhd -e neoTRNG; write_verilog ./neoTRNG/rtl/neoTRNG.v'
+
+# build binary
+python3 ./src/migen_fomu_muacm.py
+
+# flash binary on fomu
+dfu-util -D ./build/top.bin
+
+# run test suite
+python ./src/interface_test.py
