@@ -96,19 +96,19 @@ class AcmController(Module):
         # print(ip_path)
         platform.add_source(ip_path)
 
-        self.specials += Instance(
-            "neoTRNG",
-            # p_NUM_CELLS     = '0b11',
-            # p_NUM_INV_START = '0b11',
-            # p_NUM_INV_INC   = '0b10',
-            # p_NUM_INV_DELAY = '0b10',
-            # p_POST_PROC_EN  = '0b0',
-            # p_IS_SIM        = '0b0',
-            i_clk_i    = self.cd_sys.clk,
-            i_enable_i = trng_enable,
-            o_data_o   = trng_data,
-            o_valid_o  = trng_valid,
-        )
+        # self.specials += Instance(
+        #     "neoTRNG",
+        #     # p_NUM_CELLS     = '0b11',
+        #     # p_NUM_INV_START = '0b11',
+        #     # p_NUM_INV_INC   = '0b10',
+        #     # p_NUM_INV_DELAY = '0b10',
+        #     # p_POST_PROC_EN  = '0b0',
+        #     # p_IS_SIM        = '0b0',
+        #     i_clk_i    = self.cd_sys.clk,
+        #     i_enable_i = trng_enable,
+        #     o_data_o   = trng_data,
+        #     o_valid_o  = trng_valid,
+        # )
 
         # self.sync += [
         #     If(
@@ -137,7 +137,7 @@ class AcmController(Module):
         self.submodules += fsm
 
 
-        FRAME_SIZE_BITS = 7
+        FRAME_SIZE_BITS = 5
         counter = Signal(FRAME_SIZE_BITS)
 
         boot_counter = Signal(11)
@@ -202,14 +202,15 @@ class AcmController(Module):
                 NextState("IDLE"),
             ).Elif(
                 muacm.in_ready,
-                If(
-                    buffer != 0b0000_0000,
-                    NextValue(muacm.in_data, buffer),
-                    NextValue(muacm.in_valid, 1),
-                ).Else(
-                    NextValue(muacm.in_data, 0b1111_1111),
-                    NextValue(muacm.in_valid, 1),
-                ),
+                # If(
+                #     buffer != 0b0000_0000,
+                NextValue(counter, counter+1),
+                NextValue(muacm.in_data, counter),
+                NextValue(muacm.in_valid, 1),
+                # ).Else(
+                #     NextValue(muacm.in_data, 0),
+                #     NextValue(muacm.in_valid, 0),
+                # ),
                 # NextValue(muacm.in_last, 0),
                 # NextValue(muacm.in_flush_now, 0),
             ),
