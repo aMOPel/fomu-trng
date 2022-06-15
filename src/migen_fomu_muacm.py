@@ -48,21 +48,6 @@ class LoopbackTest(Module):
             o_LOCK                  = pll_locked,
         )
 
-        # self.specials += Instance("SB_PLL40_2F_PAD",
-        #     p_DIVR                  = 0,
-        #     p_DIVF                  = 63,
-        #     p_DIVQ                  = 4,
-        #     p_FILTER_RANGE          = 1,
-        #     p_FEEDBACK_PATH         = "SIMPLE",
-        #     p_PLLOUT_SELECT_PORTA   = "GENCLK",
-        #     p_PLLOUT_SELECT_PORTB   = "GENCLK_HALF",
-        #     i_PACKAGEPIN            = clk12,
-        #     o_PLLOUTGLOBALA         = self.cd_usb_48.clk,
-        #     o_PLLOUTGLOBALB         = self.cd_sys.clk,
-        #     i_RESETB                = rst_n,
-        #     o_LOCK                  = pll_locked,
-        # )
-
         self.specials += [
             AsyncResetSynchronizer(self.cd_sys,    ~por_done | ~pll_locked),
             AsyncResetSynchronizer(self.cd_usb_48, ~por_done | ~pll_locked),
@@ -85,52 +70,56 @@ class LoopbackTest(Module):
 
         rgb_pins = platform.request('rgb_led')
 
-        START_CHAR = ord('b')
-        END_CHAR = ord('e')
+        self.START_CHAR = ord('b')
+        self.END_CHAR = ord('e')
 
         self.comb += [
-            # muacm.in_data.eq(muacm.out_data),
-            # muacm.in_last.eq(0),
-            # muacm.in_valid.eq(muacm.out_valid),
-            # muacm.out_ready.eq(muacm.in_ready),
+            muacm.in_last.eq(0),
             muacm.out_ready.eq(1),
             muacm.in_flush_time.eq(0),
-            # muacm.in_flush_now.eq(0),
         ]
 
         fsm = FSM(reset_state="IDLE")
         self.submodules += fsm
 
-        counter = Signal(8)
+        FRAME_SIZE_BITS = 8
+        counter = Signal(FRAME_SIZE_BITS)
 
         fsm.act(
             "IDLE",
             red_pwm.eq(0),
+            green_pwm.eq(1),
+            blue_pwm.eq(0),
             NextValue(counter, 0),
             NextValue(muacm.in_data, 0),
             NextValue(muacm.in_valid, 0),
-            NextValue(muacm.in_last, 0),
-            NextValue(muacm.in_flush_now, 0),
+            NextValue(muacm.out_ready, 1),
+            NextValue(muacm.in_flush_now, 1),
             If(
-                muacm.out_data == START_CHAR,
+                muacm.out_valid & muacm.out_data == self.START_CHAR,
                 NextState("SENDING"),
             ),
         )
 
         fsm.act(
             "SENDING",
-            red_pwm.eq(1),
+            red_pwm.eq(0),
+            green_pwm.eq(0),
+            blue_pwm.eq(1),
+            NextValue(muacm.in_flush_now, 0),
             If(
+                muacm.out_valid & muacm.out_data == self.END_CHAR,
+                NextValue(counter, 0),
+                NextValue(muacm.in_data, 0),
+                NextValue(muacm.in_valid, 0),
+                NextValue(muacm.out_ready, 0),
+                NextState("IDLE"),
+            ).Elif(
                 muacm.in_ready,
-                NextValue(counter, counter + 1),
+                NextValue(counter, counter+1),
                 NextValue(muacm.in_data, counter),
                 NextValue(muacm.in_valid, 1),
-                NextValue(muacm.in_last, 1),
-                NextValue(muacm.in_flush_now, 1),
-            ),
-            If(
-                muacm.out_data == END_CHAR,
-                NextState("IDLE"),
+                NextValue(muacm.out_ready, 1),
             ),
         )
 

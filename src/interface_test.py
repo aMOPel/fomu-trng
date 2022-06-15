@@ -1,5 +1,6 @@
 from serial import Serial
 from serial.tools.list_ports import comports
+import time
 import unittest
 
 START_CHAR = b'b'
@@ -34,17 +35,20 @@ class TrngTestCase(unittest.TestCase):
         self.ser.close()
 
     def test_cycle(self):
-        amount_bytes = 2**7
+        amount_bytes = 2**8
+        iterations = 500
 
-        start_trng(self.ser)
-        result = read_trng(self.ser, amount_bytes)
-        end_trng(self.ser)
+        for j in range(iterations):
+            start_trng(self.ser)
+            result = read_trng(self.ser, amount_bytes)
+            time.sleep(0.01)
+            end_trng(self.ser)
 
-        # print(result)
-        # print(len(result))
-        # numbers are incrementing from 0 to 127
-        for i, byte in enumerate(result):
-            assert int(byte) == i
+            print(j)
+            print(result)
+            print(len(result))
+            for i, byte in enumerate(result):
+                assert int(byte) == i
 
 
 if __name__ == '__main__':
