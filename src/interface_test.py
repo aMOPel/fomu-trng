@@ -38,32 +38,23 @@ class TrngTestCase(unittest.TestCase):
     def test_cycle(self):
         # self.ser.reset_input_buffer()
         # self.ser.reset_output_buffer()
-        data_size = 2**5
-        iterations = 800
+        data_size = 640_000
+        iterations = 1
 
         
         result = b''
         for j in range(iterations):
-            # print(j)
+            print(j)
             start_trng(self.ser)
             result=read_trng(self.ser, data_size)
-            # result += read_trng(self.ser, 4096)
-            time.sleep(0.01)
+            # time.sleep(0.01)
             stop_trng(self.ser)
-            print(j)
-            # temp = []
-            # for i, char in enumerate(result):
-            #     if char != 255:
-            #         temp.append(char)
-            # print(temp)
-            # print(len(temp))
-            # with open(f'output/data{j}.bin', mode='wb') as f:
+            # with open(f'output/data_w_post.bin', mode='wb') as f:
             #     print(f.write(result))
             print(result)
             print(len(result))
-            for i, byte in enumerate(result):
-                assert int(byte) == i
-                # print(int(byte))
+            # for i, byte in enumerate(result):
+            #     assert int(byte) == i
 
 # 8 bits 25 iterations with sleep(0.01)
 # 7 bits 50 iterations with sleep(0.01)
