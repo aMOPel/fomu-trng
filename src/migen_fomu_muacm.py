@@ -13,6 +13,21 @@ from migen import Module, Signal, ClockSignal, ClockDomain, If, \
 
 import no2migen
 
+# Current modes
+RGBA_CURRENT_MODE_FULL = '0b0'
+RGBA_CURRENT_MODE_HALF = '0b1'
+
+# Current levels in Full / Half mode
+RGBA_CURRENT_04MA_02MA = '0b000001'
+RGBA_CURRENT_08MA_04MA = '0b000011'
+RGBA_CURRENT_12MA_06MA = '0b000111'
+RGBA_CURRENT_16MA_08MA = '0b001111'
+RGBA_CURRENT_20MA_10MA = '0b011111'
+RGBA_CURRENT_24MA_12MA = '0b111111'
+
+# Type for input pins, from ICE Technology Library Manual, pages 87-90
+SB_IO_TYPE_SIMPLE_INPUT = 0b000001
+
 
 class AcmController(Module):
 
@@ -121,6 +136,7 @@ class AcmController(Module):
 
 
         self.START_CHAR = ord('b')
+        self.COUNT_CHAR = ord('c')
         self.END_CHAR = ord('e')
 
         self.comb += [
@@ -145,8 +161,8 @@ class AcmController(Module):
 
         fsm.act(
             "BOOTING",
-            red_pwm.eq(1),
-            green_pwm.eq(0),
+            red_pwm.eq(0),
+            green_pwm.eq(1),
             blue_pwm.eq(0),
             NextValue(boot_counter, boot_counter + 1),
             If(
@@ -162,9 +178,9 @@ class AcmController(Module):
                 NextValue(booted, 1),
                 NextState("BOOTING"),
             ),
-            red_pwm.eq(0),
+            red_pwm.eq(1),
             green_pwm.eq(1),
-            blue_pwm.eq(0),
+            blue_pwm.eq(1),
             NextValue(trng_enable, 0),
             # NextValue(counter, 0),
             NextValue(muacm.in_data, 0),
@@ -174,7 +190,41 @@ class AcmController(Module):
             If(
                 muacm.out_data == self.START_CHAR,
                 NextState("SENDING"),
+            ).Elif(
+                muacm.out_data == self.COUNT_CHAR,
+                NextState("COUNTING"),
             ),
+        )
+
+        counter = Signal(8)
+
+        fsm.act(
+            "COUNTING",
+            red_pwm.eq(0),
+            green_pwm.eq(1),
+            blue_pwm.eq(1),
+            NextValue(muacm.in_flush_now, 0),
+            # NextValue(muacm.in_last, 0),
+
+            If(
+                muacm.out_data == self.END_CHAR,
+                NextValue(counter, 0),
+                NextValue(muacm.in_data, 0),
+                NextValue(muacm.in_valid, 0),
+                # NextValue(muacm.in_last, 1),
+                # NextValue(muacm.in_flush_now, 1),
+                NextState("IDLE"),
+            ).Elif(
+                muacm.in_ready,
+                NextValue(muacm.in_data, counter),
+                NextValue(muacm.in_valid, 1),
+                NextValue(counter, counter + 1),
+                # NextValue(muacm.in_last, 0),
+                # NextValue(muacm.in_flush_now, 0),
+            ).Else(
+                NextValue(muacm.in_data, 0),
+                NextValue(muacm.in_valid, 0),
+            )
         )
 
         buffer = Signal(8)
@@ -230,22 +280,6 @@ class AcmController(Module):
             p_RGB1_CURRENT=RGBA_CURRENT_08MA_04MA,
             p_RGB2_CURRENT=RGBA_CURRENT_08MA_04MA
         )
-
-
-# Current modes
-RGBA_CURRENT_MODE_FULL = '0b0'
-RGBA_CURRENT_MODE_HALF = '0b1'
-
-# Current levels in Full / Half mode
-RGBA_CURRENT_04MA_02MA = '0b000001'
-RGBA_CURRENT_08MA_04MA = '0b000011'
-RGBA_CURRENT_12MA_06MA = '0b000111'
-RGBA_CURRENT_16MA_08MA = '0b001111'
-RGBA_CURRENT_20MA_10MA = '0b011111'
-RGBA_CURRENT_24MA_12MA = '0b111111'
-
-# Type for input pins, from ICE Technology Library Manual, pages 87-90
-SB_IO_TYPE_SIMPLE_INPUT = 0b000001
 
 
 if __name__ == "__main__":
