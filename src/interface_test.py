@@ -4,12 +4,15 @@ import unittest
 import time
 
 START_CHAR = b'b'
+COUNT_CHAR = b'c'
 END_CHAR = b'e'
 
 
 def start_trng(ser: Serial):
     ser.write(START_CHAR)
 
+def start_count(ser: Serial):
+    ser.write(COUNT_CHAR)
 
 def read_trng(ser: Serial, amount_bytes: int) -> bytes:
     result = ser.read_until('', amount_bytes)
@@ -35,26 +38,43 @@ class TrngTestCase(unittest.TestCase):
         assert self.ser.is_open
         self.ser.close()
 
-    def test_cycle(self):
-        # self.ser.reset_input_buffer()
-        # self.ser.reset_output_buffer()
-        data_size = 640_000
-        iterations = 1
+    def test_acm(self):
+        data_size = 2**8
+        iterations = 100
 
         
         result = b''
         for j in range(iterations):
             print(j)
-            start_trng(self.ser)
+            start_count(self.ser)
             result=read_trng(self.ser, data_size)
             # time.sleep(0.01)
             stop_trng(self.ser)
-            # with open(f'output/data_w_post.bin', mode='wb') as f:
-            #     print(f.write(result))
             print(result)
             print(len(result))
             # for i, byte in enumerate(result):
             #     assert int(byte) == i
+
+    def test_trng(self):
+        # self.ser.reset_input_buffer()
+        # self.ser.reset_output_buffer()
+        data_size = 640#_000
+        iterations = 1
+        # start_trng(self.ser)
+        stop_trng(self.ser)
+        #
+        # result = b''
+        # for j in range(iterations):
+        #     print(j)
+        #     start_trng(self.ser)
+        #     result=read_trng(self.ser, data_size)
+        #     # time.sleep(0.01)
+        #     stop_trng(self.ser)
+        #     # with open(f'output/many_cells/data_{j}.bin', mode='wb') as f:
+        #     #     f.write(result)
+        #     print(result)
+        #     # print(len(result))
+
 
 # 8 bits 25 iterations with sleep(0.01)
 # 7 bits 50 iterations with sleep(0.01)
@@ -78,5 +98,20 @@ class TrngTestCase(unittest.TestCase):
 # 640_000 9.844s
 # 656_441 10.170s
 
+def suite(args: list):
+    suite = unittest.TestSuite()
+
+    default = 'trng'
+    if not len(args):
+        suite.addTest(TrngTestCase(f'test_{default}'))
+
+    for arg in args:
+        suite.addTest(TrngTestCase(f'test_{arg}'))
+    return suite
+
 if __name__ == '__main__':
-    unittest.main()
+    import sys
+
+    runner = unittest.TextTestRunner()
+    suite = suite(sys.argv[1:])
+    runner.run(suite)
