@@ -19,7 +19,7 @@ def read_trng(ser: Serial, amount_bytes: int) -> bytes:
     return result
 
 
-def stop_trng(ser: Serial):
+def stop(ser: Serial):
     ser.write(END_CHAR)
 
 class TrngTestCase(unittest.TestCase):
@@ -30,7 +30,7 @@ class TrngTestCase(unittest.TestCase):
             if port.description == 'μacm':
                 device = port.device
         assert device, 'muacm device not found'
-        self.ser = Serial(device, timeout=10)
+        self.ser = Serial(device, timeout=3)
         if not self.ser.is_open:
             self.ser.open()
 
@@ -39,17 +39,23 @@ class TrngTestCase(unittest.TestCase):
         self.ser.close()
 
     def test_acm(self):
-        data_size = 2**8
-        iterations = 100
+        data_size = 2**5
+        iterations = 1
 
         
         result = b''
         for j in range(iterations):
             print(j)
             start_count(self.ser)
+            # print("dsr=", self.ser.dsr) #f
+            # print("dtr=", self.ser.dtr) #t
+            # print("cts=", self.ser.cts) #t
+            # print("rts=", self.ser.rts) #t
+            # print("ri=", self.ser.ri)  #f
+            # print("cd=", self.ser.cd)  #f
             result=read_trng(self.ser, data_size)
             # time.sleep(0.01)
-            stop_trng(self.ser)
+            stop(self.ser)
             print(result)
             print(len(result))
             # for i, byte in enumerate(result):
@@ -61,7 +67,7 @@ class TrngTestCase(unittest.TestCase):
         data_size = 640#_000
         iterations = 1
         # start_trng(self.ser)
-        stop_trng(self.ser)
+        stop(self.ser)
         #
         # result = b''
         # for j in range(iterations):
@@ -69,7 +75,7 @@ class TrngTestCase(unittest.TestCase):
         #     start_trng(self.ser)
         #     result=read_trng(self.ser, data_size)
         #     # time.sleep(0.01)
-        #     stop_trng(self.ser)
+        #     stop(self.ser)
         #     # with open(f'output/many_cells/data_{j}.bin', mode='wb') as f:
         #     #     f.write(result)
         #     print(result)
@@ -115,3 +121,12 @@ if __name__ == '__main__':
     runner = unittest.TextTestRunner()
     suite = suite(sys.argv[1:])
     runner.run(suite)
+
+# out_last doesn't go high in 
+        # data_size = 1_000_000
+        # iterations = 2
+
+# test in_last
+# test in_flush_now
+# test in_valid
+# test out_ready
