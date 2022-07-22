@@ -1,0 +1,3 @@
+--define:"release"
+--nimblePath:"nimbledeps/pkgs"
+--outDir:"./bin"

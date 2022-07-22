@@ -8,7 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
@@ -129,4 +128,15 @@ dmypy.json
 .pyre/
 
 Session.vim
-src/old/
+src/migen/old/
+data/
+*.vcd
+build/build_top.sh
+build/top.json
+build/top.pcf
+build/top.rpt
+build/top.txt
+build/top.v
+build/top.ys
+build/top_pre_pack.py
+nimbledeps/
