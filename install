@@ -1,7 +1,0 @@
-#! /bin/bash
-python3 -m venv ./venv
-source ./venv/bin/activate
-pip3 install -r requirements.txt
-
-echo "https://workshop.fomu.im/en/latest/requirements/drivers.html"
-echo "https://pyserial.readthedocs.io/en/latest/appendix.html?highlight=permission#faq"
