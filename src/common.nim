@@ -35,32 +35,31 @@ proc flash*(): int =
   execShellCmd &"dfu-util -D {root}build/top.bin"
 
 proc run*(port: SerialPort, data_size: int, mode = Trng,
-    file_name = none string, buffered = false): Option[string] =
+    file_name = none string, buffered = false) =
   ## read usb data according to `data_size` and optionally stream it into a file
 
-  port.open(50, Parity.None, 8, StopBits.One)
+  port.open(1_000_000, Parity.None, 8, StopBits.One)
   let ss = newSerialStream(port, buffered)
   defer: close(ss)
 
   ss.write(mode)
 
-  # stream into file in tiny chunks
+  var fs: FileStream
+
+  # cut into 1024 byte cunks
+  let chunkSize = min(1024, data_size)
+  let iterations: int = (data_size / chunkSize).ceil.int
+
   if file_name.isSome:
-    let chunkSize = min(1024, data_size)
-    let iterations: int = (data_size / chunkSize).ceil.int
-
-    var fs = newFileStream(&"{file_name.get}.bin", fmAppend)
-    defer: fs.close()
-
-    for _ in 0..<iterations:
-      fs.write ss.readStr(chunkSize)
-
-    result = none string
-
-  # stream into string
+    # stream into file
+    fs = newFileStream(&"{file_name.get}.bin", fmAppend)
   else:
-    var receiveBuffer = ss.readStr(data_size)
-    result = some receiveBuffer
+    # stream into stdout
+    fs = newFileStream(stdout)
+  defer: fs.close()
+
+  for _ in 0..<iterations:
+    fs.write ss.readStr(chunkSize)
 
   ss.write(Idle)
 

@@ -32,7 +32,7 @@ proc measure*(port: SerialPort, file_name: string, mode = Trng,
     for i in 0..<untilEnd:
       echo i
       let t0 = cpuTime()
-      discard port.run(data_sizes[i].int, mode,
+      port.run(data_sizes[i].int, mode,
           if captureData: some file_name else: none string)
       let t1 = cpuTime()
       mtimes.add t1 - t0
@@ -151,7 +151,6 @@ when isMainModule:
 
   # TODO: test speed and quality of different trng configurations
   # TODO: make own post processing
-  # TODO: run should stream to stdout
 
   # first: flush_now in idle, no last
   # second: no flush_now, no last

@@ -40,6 +40,11 @@ RGBA_CURRENT_24MA_12MA = '0b111111'
 # Type for input pins, from ICE Technology Library Manual, pages 87-90
 SB_IO_TYPE_SIMPLE_INPUT = 0b000001
 
+env_var = "FOMU_TRNG_ROOT"
+root = os.environ.get(env_var, "./")
+if root[-1] != "/":
+    root += "/"
+ip_path = f'{root}src/neoTRNG/neoTRNG.v'
 
 class AcmController(Module):
 
@@ -119,11 +124,6 @@ class AcmController(Module):
         self.trng_valid = Signal(1)
         self.trng_enable = Signal(1)
 
-        env_var = "FOMU_TRNG_ROOT"
-        root = os.environ.get(env_var, "./")
-        if root[-1] != "/":
-            root += "/"
-        ip_path = f'{root}src/neoTRNG/neoTRNG.v'
         platform.add_source(ip_path)
 
         self.specials += Instance(

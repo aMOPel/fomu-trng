@@ -107,7 +107,7 @@ nimble install -l -y
 ```sh
 ./bin/fomutrng flash
 ```
-* `run` Get trng data dumped to stdout
+* `run` Get trng data streamed to stdout
 ```sh
 ./bin/fomutrng run
 ```
@@ -136,7 +136,7 @@ fomutrng run
   trng_build    convert the neoTRNG.vhd file to neoTRNG.v, because the toolchain needs verilog
   binary_build  run the build scripts from litex to build the flashable binary for the fomu
   flash         flash the binary on the fomu
-  run           collect <size> bytes using <mode> and dump to stdout or stream to <file>
+  run           collect <size> bytes using <mode> and steam to stdout or <file>
 ```
 
 These commands just wrap other cli commands and/or add convinience.
