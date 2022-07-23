@@ -8,7 +8,11 @@ const Trng* = "t"
 const Counter* = "c"
 const Idle* = "i"
 
+const EnvVar = "FOMU_TRNG_ROOT"
+var PythonCmd = "python3"
+
 var portName*: string
+var root* = "./"
 
 proc trng_build*(cells = 3, start = 3, inc = 2, delay = 2, post = false): int =
   ## convert the neoTRNG.vhd file to neoTRNG.v, because the toolchain needs verilog
@@ -19,16 +23,16 @@ ghdl --synth --std=08 --out=verilog \
   -gNUM_INV_INC={inc} \
   -gNUM_INV_DELAY={delay} \
   -gPOST_PROC_EN={post} \
-  ./src/neoTRNG/neoTRNG.vhd -e neoTRNG > ./src/neoTRNG/neoTRNG.v
+  {root}src/neoTRNG/neoTRNG.vhd -e neoTRNG > {root}src/neoTRNG/neoTRNG.v
 """
 
 proc binary_build*(): int =
   ## run the build scripts from litex to build the flashable binary for the fomu
-  execShellCmd "python3 ./src/migen/fomu_neoTrng_muacm.py"
+  execShellCmd &"{PythonCmd} {root}src/migen/fomu_neoTrng_muacm.py"
 
 proc flash*(): int =
   ## flash the binary on the fomu
-  execShellCmd "dfu-util -D ./build/top.bin"
+  execShellCmd &"dfu-util -D {root}build/top.bin"
 
 proc run*(port: SerialPort, data_size: int, mode = Trng,
     file_name = none string, buffered = false): Option[string] =
@@ -62,5 +66,14 @@ proc run*(port: SerialPort, data_size: int, mode = Trng,
 
 proc setPortName*() =
   ## ugly, but works
-  portName = execCmdEx("python ./src/get_right_acm_port.py").output[0..^2]
+  portName = execCmdEx(&"{PythonCmd} {root}src/get_right_acm_port.py").output[0..^2]
+  assert portName[0..8] != "Traceback", "__COULDN'T FIND ACM PORT__" 
+  assert portName[0] == '/', "__COULDN'T FIND ACM PORT__" 
+
+proc setRoot*() =
+  if EnvVar.existsEnv:
+    root = EnvVar.getEnv
+    if root[^1] != '/':
+      root &= "/"
+
 

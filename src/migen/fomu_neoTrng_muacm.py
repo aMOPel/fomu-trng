@@ -21,6 +21,7 @@ from migen.genlib.resetsync import AsyncResetSynchronizer
 
 from migen import Module, Signal, ClockSignal, ClockDomain, If, Instance
 
+import os
 
 import no2migen
 
@@ -118,7 +119,11 @@ class AcmController(Module):
         self.trng_valid = Signal(1)
         self.trng_enable = Signal(1)
 
-        ip_path = './src/neoTRNG/neoTRNG.v'
+        env_var = "FOMU_TRNG_ROOT"
+        root = os.environ.get(env_var, "./")
+        if root[-1] != "/":
+            root += "/"
+        ip_path = f'{root}src/neoTRNG/neoTRNG.v'
         platform.add_source(ip_path)
 
         self.specials += Instance(

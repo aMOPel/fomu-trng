@@ -46,7 +46,7 @@ proc plotTimes*(path: string) =
   ## plot the measured times from the `measure` proc (averaged) against the data_sizes
   ## for all jsons in `path`
   var ds: seq[Trace[float]]
-  for k in walkPattern(&"{path}*.json"):
+  for k in walkPattern(&"{root}{path}*.json"):
     var d = Trace[float](mode: PlotMode.LinesMarkers,
         `type`: PlotType.Scatter, name: k)
     let datas = readFile(k).fromJson(seq[Data])
@@ -73,7 +73,7 @@ proc plotTimes*(path: string) =
 
 proc gatherData*(path: string) =
   ## full pipeline
-  ## reads trng configurations from trng_configurations.json
+  ## reads trng configurations from data/trng_configurations.json
   ## generates the trng file, the binary file, flashes the fomu
   ## and measures the speed and collects the usb data,
   ## using the individual trng_configuration as a file naming scheme
@@ -85,7 +85,7 @@ proc gatherData*(path: string) =
       delay: int
       post: bool
 
-  let configs = readFile("data/trng_configurations.json").fromJson(seq[TrngConfig])
+  let configs = readFile(&"{root}data/trng_configurations.json").fromJson(seq[TrngConfig])
 
   var return_code: int
   for c in configs:
@@ -108,7 +108,7 @@ proc gatherData*(path: string) =
 
     let port = newSerialPort(portName)
 
-    let file_name = &"{path}{c.cells}_{c.start}_{c.inc}_{c.delay}_{c.post}"
+    let file_name = &"{root}{path}{c.cells}_{c.start}_{c.inc}_{c.delay}_{c.post}"
     port.measure(file_name)
 
 # proc testTrngData(path: string) =
@@ -116,6 +116,8 @@ proc gatherData*(path: string) =
 
 when isMainModule:
   setPortName()
+  setRoot()
+  echo root
 
   # let path = "data/trng/"
   # let file_name = path&"sixth"
@@ -149,7 +151,6 @@ when isMainModule:
 
   # TODO: test speed and quality of different trng configurations
   # TODO: make own post processing
-  # TODO: make paths not relative
   # TODO: run should stream to stdout
 
   # first: flush_now in idle, no last
