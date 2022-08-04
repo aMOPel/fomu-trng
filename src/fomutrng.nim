@@ -16,7 +16,7 @@ proc flash(): int =
   common.flash()
 
 proc run(size = 1024, mode = Trng, file = ""): int =
-  ## collect <size> bytes using <mode> and stream to stdout or <file>
+  ## collect <size> bytes using <mode> and stream to stdout or <file>.bin
   setPortName()
   let port = newSerialPort(portName)
 

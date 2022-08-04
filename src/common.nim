@@ -38,7 +38,7 @@ proc run*(port: SerialPort, data_size: int, mode = Trng,
     file_name = none string, buffered = false) =
   ## read usb data according to `data_size` and optionally stream it into a file
 
-  port.open(1_000_000, Parity.None, 8, StopBits.One)
+  port.open(50, Parity.None, 8, StopBits.One)
   let ss = newSerialStream(port, buffered)
   defer: close(ss)
 
