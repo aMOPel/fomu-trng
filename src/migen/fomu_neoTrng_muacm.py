@@ -40,6 +40,8 @@ RGBA_CURRENT_24MA_12MA = '0b111111'
 # Type for input pins, from ICE Technology Library Manual, pages 87-90
 SB_IO_TYPE_SIMPLE_INPUT = 0b000001
 
+withoutTrng = False
+
 env_var = "FOMU_TRNG_ROOT"
 root = os.environ.get(env_var, "./")
 if root[-1] != "/":
@@ -124,15 +126,16 @@ class AcmController(Module):
         self.trng_valid = Signal(1)
         self.trng_enable = Signal(1)
 
-        platform.add_source(ip_path)
+        if not withoutTrng:
+            platform.add_source(ip_path)
 
-        self.specials += Instance(
-            "neoTRNG",
-            i_clk_i=self.cd_sys.clk,
-            i_enable_i=self.trng_enable,
-            o_data_o=self.trng_data,
-            o_valid_o=self.trng_valid,
-        )
+            self.specials += Instance(
+                "neoTRNG",
+                i_clk_i=self.cd_sys.clk,
+                i_enable_i=self.trng_enable,
+                o_data_o=self.trng_data,
+                o_valid_o=self.trng_valid,
+            )
 
         self.TRNG_CHAR = ord('t')
         self.COUNT_CHAR = ord('c')
@@ -153,26 +156,26 @@ class AcmController(Module):
         self.booted = Signal(1)
 
         self.comb += [
-            # idle
             If(
+                # idle
                 self.state == 0,
                 red_pwm.eq(0),
                 green_pwm.eq(0),
                 blue_pwm.eq(0),
-                # counter
             ).Elif(
+                # counter
                 self.state == 1,
                 red_pwm.eq(0),
                 green_pwm.eq(1),
                 blue_pwm.eq(1),
-                # trng
             ).Elif(
+                # trng
                 self.state == 2,
                 red_pwm.eq(0),
                 green_pwm.eq(0),
                 blue_pwm.eq(1),
-                # booting trng
             ).Elif(
+                # booting trng
                 self.state == 3,
                 red_pwm.eq(0),
                 green_pwm.eq(1),
@@ -183,12 +186,13 @@ class AcmController(Module):
         self.sync += [
             If(
                 self.state == 0,
-                If(
-                    ~self.booted,
-                    self.booted.eq(1),
-                    self.state.eq(3),
-                ),
+                # If(
+                #     ~self.booted,
+                #     self.booted.eq(1),
+                #     self.state.eq(3),
+                # ),
                 # self.counter.eq(0),
+                self.boot_counter.eq(1),
                 muacm.in_data.eq(0),
                 muacm.in_valid.eq(0),
                 If(
@@ -196,7 +200,7 @@ class AcmController(Module):
                     self.state.eq(1),
                 ).Elif(
                     muacm.out_data == self.TRNG_CHAR,
-                    self.state.eq(2),
+                    self.state.eq(3),
                 ),
             ).Elif(
                 self.state == 1,
@@ -241,8 +245,9 @@ class AcmController(Module):
                 self.state == 3,
                 self.boot_counter.eq(self.boot_counter+1),
                 If(
-                    self.boot_counter == 0b111_1111_1111,
-                    self.state.eq(0),
+                    self.boot_counter == 0,
+                    self.boot_counter.eq(1),
+                    self.state.eq(2),
                 ),
             ),
         ]
@@ -266,6 +271,12 @@ class AcmController(Module):
 
 if __name__ == "__main__":
     # from migen.build.generic_platform import *
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--withoutTrng",action="store_true")
+    args = parser.parse_args()
+    withoutTrng = args.withoutTrng
+
     from litex_boards.platforms import kosagi_fomu_pvt
     plat = kosagi_fomu_pvt.Platform()
     plat.build(

@@ -7,9 +7,9 @@ proc trng_build(cells = 3, start = 3, inc = 2, delay = 2, post_disable = false):
   ## convert the neoTRNG.vhd file to neoTRNG.v, because the toolchain needs verilog
   common.trng_build(cells, start, inc, delay, not post_disable)
 
-proc binary_build(): int =
+proc binary_build(withoutTrng = false): int =
   ## run the build scripts from litex to build the flashable binary for the fomu
-  common.binary_build()
+  common.binary_build(withoutTrng)
 
 proc flash(): int =
   ## flash the binary on the fomu

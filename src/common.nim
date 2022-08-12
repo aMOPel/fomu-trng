@@ -26,9 +26,10 @@ ghdl --synth --std=08 --out=verilog \
   {root}src/neoTRNG/neoTRNG.vhd -e neoTRNG > {root}src/neoTRNG/neoTRNG.v
 """
 
-proc binary_build*(): int =
+proc binary_build*(withoutTrng = false): int =
   ## run the build scripts from litex to build the flashable binary for the fomu
-  execShellCmd &"{PythonCmd} {root}src/migen/fomu_neoTrng_muacm.py"
+  let withTrngStr = if withoutTrng: " --withoutTrng" else: ""
+  execShellCmd &"{PythonCmd} {root}src/migen/fomu_neoTrng_muacm.py{withTrngStr}"
 
 proc flash*(): int =
   ## flash the binary on the fomu
