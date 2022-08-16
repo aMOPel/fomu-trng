@@ -7,6 +7,7 @@ export options
 const Trng* = "t"
 const Counter* = "c"
 const Idle* = "i"
+const Reset* = "r"
 
 const EnvVar = "FOMU_TRNG_ROOT"
 var PythonCmd = "python3"
@@ -34,6 +35,13 @@ proc binary_build*(withoutTrng = false): int =
 proc flash*(): int =
   ## flash the binary on the fomu
   execShellCmd &"dfu-util -D {root}build/top.bin"
+
+proc reset*(port: SerialPort) =
+  port.open(50, Parity.None, 8, StopBits.One)
+  let ss = newSerialStream(port, false)
+  defer: close(ss)
+
+  ss.write(Reset)
 
 proc run*(port: SerialPort, data_size: int, mode = Trng,
     file_name = none string, buffered = false) =

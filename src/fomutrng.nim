@@ -15,6 +15,12 @@ proc flash(): int =
   ## flash the binary on the fomu
   common.flash()
 
+proc reset(): int =
+  ## reset the fomu to the boot image, making it flashable again
+  setPortName()
+  let port = newSerialPort(portName)
+  port.reset
+
 proc run(size = 1024, mode = Trng, file = ""): int =
   ## collect <size> bytes using <mode> and stream to stdout or <file>.bin
   setPortName()
@@ -37,11 +43,13 @@ when isMainModule:
     }], 
     [fomutrng.binary_build],
     [fomutrng.flash],
+    [fomutrng.reset],
     [fomutrng.run, help = {
     "size": "amount of collected bytes",
     "mode": "'t' for trng 'c' for counter (debugging)",
     "file": "write to specified <file>.txt instead of stdout",
     }],
     [gatherData],
-    [plotTimes],
+    # [plotTimes],
+    [plotDataCompare],
     )
