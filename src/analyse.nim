@@ -1,93 +1,104 @@
 import std/[osproc, re, sequtils, strutils, monotimes, sugar, os,
-    strformat, options, stats, enumerate]
+    strformat, options, stats, enumerate, parsecsv, streams]
 
 import serial
 import plotly
 import jsony
 import notification
-# import print
+import print
 
 import common
 
 type
   Stats = object
-    min: float64
-    max: float64
-    mean: float64
-    variance: float64
-    standardDeviation: float64
+    min*: float64
+    max*: float64
+    mean*: float64
+    variance*: float64
+    standardDeviation*: float64
 
   SpeedData = object
-    dataSize: float64
-    times: seq[float64]
-    speeds: seq[float64]
-    timeStats: Stats
-    speedStats: Stats
+    dataSize*: float64
+    times*: seq[float64]
+    speeds*: seq[float64]
+    timeStats*: Stats
+    speedStats*: Stats
 
   EntData = object
-    accError: float64
-    entropyError: float64
-    # compressionError: float64
-    meanError: float64
-    monteCarloPiError: float64
-    serialCorrelationError: float64
-    entropy: float64
-    # compression: float64
-    chiSquare: float64
-    mean: float64
-    monteCarloPi: float64
-    serialCorrelation: float64
+    accError*: float64
+    entropyError*: float64
+    # compressionError*: float64
+    meanError*: float64
+    monteCarloPiError*: float64
+    serialCorrelationError*: float64
+    entropy*: float64
+    # compression*: float64
+    chiSquare*: float64
+    mean*: float64
+    monteCarloPi*: float64
+    serialCorrelation*: float64
 
   FipsData = object
-    failures: float64
-    failed20kBlocks: float64
-    monoBit: float64
-    poker: float64
-    runs: float64
-    longRun: float64
-    continuousRun: float64
+    failures*: float64
+    failed20kBlocks*: float64
+    monoBit*: float64
+    poker*: float64
+    runs*: float64
+    longRun*: float64
+    continuousRun*: float64
+
+  Status = enum
+    None
+    Failed
+    Weak
+    Passed
+
+  pValStatus = tuple[pValue: float64, status: Status]
 
   DieHarderData = object
-    diehardBirthdays: float64
-    diehardOPERM5: float64
-    diehard32x32BinaryRank: float64
-    diehard6x8BinaryRank: float64
-    diehardBitstream: float64
-    # diehardOPSO: float64 suspect
-    # diehardOQSO: float64 suspect
-    # diehardDNA: float64 suspect
-    diehardCountthe1sstream: float64
-    diehardCountthe1s: float64
-    diehardParkingLot: float64
-    diehardMinimumDistance2dCircle: float64
-    diehard3dSphereMinimumDistance: float64
-    diehardSqueeze: float64
-    # diehardSums: float64 do not use
-    diehardRuns: float64
-    diehardCraps: float64
-    marsagliaandTsangGCD: float64
-    stsMonobit: float64
-    stsRuns: float64
-    stsSerial: float64
-    rgbBitDistribution: float64
-    rgbGeneralizedMinimumDistance: float64
-    rgbPermutations: float64
-    rgbLaggedSum: float64
-    rgbKolmogorovSmirnov: float64
-    byteDistribution: float64
-    dabDCT: float64
-    dabFillTree: float64
-    dabFillTree2: float64
-    dabMonobit2: float64
+    failed*: float64
+    weak*: float64
+    passed*: float64
+    diehardBirthdays*: seq[pValStatus]
+    diehardOPERM5*: seq[pValStatus]
+    diehard32x32BinaryRank*: seq[pValStatus]
+    diehard6x8BinaryRank*: seq[pValStatus]
+    diehardBitstream*: seq[pValStatus]
+    # diehardOPSO*: seq[pValStatus] suspect
+    # diehardOQSO*: seq[pValStatus] suspect
+    # diehardDNA*: seq[pValStatus] suspect
+    diehardCountthe1sstream*: seq[pValStatus]
+    diehardCountthe1s*: seq[pValStatus]
+    diehardParkingLot*: seq[pValStatus]
+    diehardMinimumDistance2dCircle*: seq[pValStatus]
+    diehard3dSphereMinimumDistance*: seq[pValStatus]
+    diehardSqueeze*: seq[pValStatus]
+    # diehardSums*: seq[pValStatus] do not use
+    diehardRuns*: seq[pValStatus]
+    diehardCraps*: seq[pValStatus]
+    marsagliaandTsangGCD*: seq[pValStatus]
+    stsMonobit*: seq[pValStatus]
+    stsRuns*: seq[pValStatus]
+    stsSerial*: seq[pValStatus]
+    rgbBitDistribution*: seq[pValStatus]
+    rgbGeneralizedMinimumDistance*: seq[pValStatus]
+    rgbPermutations*: seq[pValStatus]
+    rgbLaggedSum*: seq[pValStatus]
+    rgbKolmogorovSmirnov*: seq[pValStatus]
+    byteDistribution*: seq[pValStatus]
+    dabDCT*: seq[pValStatus]
+    dabFillTree*: seq[pValStatus]
+    dabFillTree2*: seq[pValStatus]
+    dabMonobit2*: seq[pValStatus]
 
   TestData = object
-    entData: EntData
-    fipsData: FipsData
-    dieHarderData: DieHarderData
+    entData*: EntData
+    fipsData*: FipsData
+    dieHarderData*: DieHarderData
 
   SizeData = object
-    inverterCount: int
-    lcCount: int
+    inverterCount*: int
+    lcCount*: int
 
   TrngConfig = object
     cells*: int
@@ -97,10 +108,10 @@ type
     post*: bool
 
   JsonData = object
-    trngConfig: TrngConfig
-    speedData: SpeedData
-    sizeData: SizeData
-    testData: TestData
+    trngConfig*: TrngConfig
+    speedData*: SpeedData
+    sizeData*: SizeData
+    testData*: TestData
 
   Data = enum
     Speed
@@ -109,6 +120,9 @@ type
     Ent
     Fips
     Fips20k
+    DieHarderFailed
+    DieHarderWeak
+    DieHarderPassed
 
   MinsMaxs = object
     mins: array[Data, float64]
@@ -253,13 +267,136 @@ proc getFipsData(fileName: string): FipsData =
   else:
     assert false, "fips fail\n" & dataStr
 
-proc getTestData(fileName: string): TestData =
+proc getDieHarderData*(fileName: string): DieHarderData =
+  let dataStr = execCmdEx(
+    &"dieharder -a -g 201 -f {fileName}.bin -c ',' -D line_header -D test_name -D pvalues -D assessment").output
+  var s = newStringStream(dataStr)
+  var p: CsvParser
+  p.open(s, fileName)
+  defer: p.close()
+  p.readHeaderRow()
+  var temp: seq[seq[pValStatus]]
+  var prevTestName: string
+  while p.readRow():
+    print p.row
+    if p.row.len < 3:
+      continue
+
+    var currentTestName = p.row[0]
+    let newPValStatus = (
+      pValue: p.row[1].parseFloat.float64,
+      status: case p.row[2]:
+      of "  PASSED  ":
+        Status.Passed
+      of "   WEAK   ":
+        Status.Weak
+      of "  FAILED  ":
+        Status.Failed
+      else:
+        echo "WTF" & p.row[2]
+        Status.None
+    )
+    if currentTestName != prevTestName:
+      temp.add @[newPValStatus]
+    else:
+      temp[^1].add newPValStatus
+    prevTestName = currentTestName
+
+  print temp
+
+  assert temp.len == 31, &"DieHarder didn't run all tests, it ran {temp.len}/31"
+  result = DieHarderData(
+    diehardBirthdays: temp[0],
+    diehardOPERM5: temp[1],
+    diehard32x32BinaryRank: temp[2],
+    diehard6x8BinaryRank: temp[3],
+    diehardBitstream: temp[4],
+    # diehardOPSO: temp[5] suspect,
+      # diehardOQSO: temp[6] suspect,
+      # diehardDNA: temp[7] suspect,
+    diehardCountthe1sstream: temp[8],
+    diehardCountthe1s: temp[9],
+    diehardParkingLot: temp[10],
+    diehardMinimumDistance2dCircle: temp[11],
+    diehard3dSphereMinimumDistance: temp[12],
+    diehardSqueeze: temp[13],
+    # diehardSums: temp[14] do not use,
+    diehardRuns: temp[15],
+    diehardCraps: temp[16],
+    marsagliaandTsangGCD: temp[17],
+    stsMonobit: temp[18],
+    stsRuns: temp[19],
+    stsSerial: temp[20],
+    rgbBitDistribution: temp[21],
+    rgbGeneralizedMinimumDistance: temp[22],
+    rgbPermutations: temp[23],
+    rgbLaggedSum: temp[24],
+    rgbKolmogorovSmirnov: temp[25],
+    byteDistribution: temp[26],
+    dabDCT: temp[27],
+    dabFillTree: temp[28],
+    dabFillTree2: temp[29],
+    dabMonobit2: temp[30],
+  )
+
+  for v in fields(result):
+    when v is seq:
+      for i in v:
+        when i is pValStatus:
+          case i.status:
+            of None: discard
+            of Failed: result.failed += 1.0
+            of Weak: result.weak += 1.0
+            of Passed: result.passed += 1.0
+
+
+proc getTestData(fileName: string, dieharder = false): TestData =
   ## get EntData and FipsData
   result.fipsData = getFipsData(fileName)
   result.entData = getEntData(fileName)
+  if dieharder:
+    result.dieHarderData = getDieHarderData(fileName)
+
+import macros
+macro `[]`(o: untyped; k: static[string]): untyped =
+  let i = k.ident
+  result = quote do:
+    `o`.`i`
+
+macro `[]=`(o: untyped; k: static[string]; v: untyped) =
+  let i = k.ident
+  quote do:
+    `o`.`i` = `v`
+
+proc recObj[T: object](obj: T, samples: seq[T]): T =
+  for k, v in fieldPairs(obj):
+    when v is object:
+      when v is TrngConfig or v is SizeData:
+        result[k] = samples[0][k]
+      else:
+        let newSamples = samples.map(proc (o: T): v.type = o[k])
+        result[k] = recObj(v, newSamples)
+    elif v is float64:
+      var sum: float64
+      for j in samples: sum += j[k]
+      result[k] = sum / samples.len.float64
+    elif v is seq:
+      discard
+    # else:
+    #   echo "WTF"
+    #   print k
+    #   print v
+
+proc generateMeanJsonData*(configdir: string) =
+  var jdatas: seq[JsonData]
+  var mean: JsonData
+  for k in walkPattern(&"{configdir}[!m]*.json"):
+    jdatas.add readFile(k).fromJson(JsonData)
+  mean = recObj(mean, jdatas)
+  writeFile(&"{configdir}mean.json", mean.toJson)
 
 proc gatherData*(path: string, oiterations = 1, dataSizeKb = 1,
-    iiterations = 1) =
+    iiterations = 1, dieharder = false) =
   ## full pipeline
   ## reads trng configurations from data/trng_configurations.json
   ## generates the trng verilog file, the binary file, flashes the fomu
@@ -290,18 +427,18 @@ proc gatherData*(path: string, oiterations = 1, dataSizeKb = 1,
     setPortName()
     let port = newSerialPort(portName)
 
-    let basedir = &"{root}{path}{dataSizeKb}_{iiterations}"
+    let basedir = &"{root}{path}{dataSizeKb}_{iiterations}/"
     if not basedir.existsOrCreateDir:
       echo &"created directory {basedir}"
-    let configdir = &"{basedir}/{c.cells}_{c.start}_{c.inc}_{c.delay}_{c.post}"
+    let configdir = &"{basedir}{c.cells}_{c.start}_{c.inc}_{c.delay}_{c.post}/"
     if not configdir.existsOrCreateDir:
       echo &"created directory {configdir}"
     for j in 0..<oiterations:
-      let file_name = &"{configdir}/{j}"
+      let file_name = &"{configdir}{j}"
       let speed = port.getSpeedData(file_name, dataSizeKb = dataSizeKb,
           iterations = iiterations)
       let size = getSizeData(c)
-      let test = getTestData(file_name)
+      let test = getTestData(file_name, dieharder)
 
       writeFile(&"{file_name}.json", JsonData(
         trngConfig: c,
@@ -310,6 +447,7 @@ proc gatherData*(path: string, oiterations = 1, dataSizeKb = 1,
         testData: test,
       ).toJson)
 
+    generateMeanJsonData(configdir)
     port.reset
     # wait a sec so the acm port can be found
     sleep 1000
@@ -383,7 +521,10 @@ proc initMinsMaxs(path: string) =
   var entFails: seq[float64]
   var fipsFails: seq[float64]
   var fips20kFails: seq[float64]
-  for k in walkPattern(&"{root}{path}*.json"):
+  var dieHarderFailed: seq[float64]
+  var dieHarderWeak: seq[float64]
+  var dieHarderPassed: seq[float64]
+  for k in walkPattern(&"{root}{path}*/mean.json"):
     try:
       let data = k.readFile.fromJson(JsonData)
       sizes.add data.sizeData.lcCount
@@ -392,6 +533,9 @@ proc initMinsMaxs(path: string) =
       fips20kFails.add data.testData.fipsData.failed20kBlocks
       speeds.add data.speedData.speedStats.mean
       times.add data.speedData.timeStats.mean
+      dieHarderFailed.add data.testData.dieHarderData.failed
+      dieHarderWeak.add data.testData.dieHarderData.weak
+      dieHarderPassed.add data.testData.dieHarderData.passed
     except JsonError:
       echo k
   var stats: RunningStat
@@ -418,6 +562,18 @@ proc initMinsMaxs(path: string) =
   stats5.push times
   minsMaxs.maxs[Times] = stats5.max
   minsMaxs.mins[Times] = stats5.min
+  var stats6: RunningStat
+  stats6.push dieHarderFailed
+  minsMaxs.maxs[DieHarderFailed] = stats6.max
+  minsMaxs.mins[DieHarderFailed] = stats6.min
+  var stats7: RunningStat
+  stats7.push dieHarderWeak
+  minsMaxs.maxs[DieHarderWeak] = stats7.max
+  minsMaxs.mins[DieHarderWeak] = stats7.min
+  var stats8: RunningStat
+  stats8.push dieHarderPassed
+  minsMaxs.maxs[DieHarderPassed] = stats8.max
+  minsMaxs.mins[DieHarderPassed] = stats8.min
 
 
 proc normalize(x: float64, kind: Data): float64 =
@@ -425,7 +581,8 @@ proc normalize(x: float64, kind: Data): float64 =
   (x - minsMaxs.mins[kind]) / (minsMaxs.maxs[kind] - minsMaxs.mins[kind])
 
 proc plotDataCompare*(path: string, normalizeEnable = false,
-    barmode = BarMode.Unset) =
+    barmode = BarMode.Unset, entFilter = none float64,
+    fipsFilter = none float64, dieHarderEnableForce = false) =
   ## plot times, size, ent, and fips data in for every json in path
   ## if normalizeEnable: normalizes data using `normalize()` so all datapoints are between 0 and 1
   ## barmode = "stack" to stack the bars
@@ -437,29 +594,61 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
     ent: seq[float64]
     fips: seq[float64]
     fips20k: seq[float64]
-  var plotData: PlotData
-  var ds: seq[Trace[float64]]
+    dieHarderFailed: seq[float64]
+    dieHarderWeak: seq[float64]
+    dieHarderPassed: seq[float64]
+  var
+    plotData: PlotData
+    ds: seq[Trace[float64]]
+    dieharder = dieHarderEnableForce
 
   initMinsMaxs(path)
 
-  for i, k in enumerate(walkPattern(&"{root}{path}*.json")):
+  for i, k in enumerate(walkPattern(&"{root}{path}*/mean.json")):
     let jdata = readFile(k).fromJson(JsonData)
 
-    plotData.config.add $k.splitPath.tail[0..^6]
+    if not dieharder:
+      if jdata.testData.dieHarderData.failed +
+        jdata.testData.dieHarderData.passed +
+        jdata.testData.dieHarderData.weak == 110:
+        dieharder = true
+      else:
+        dieharder = false
+
     if normalizeEnable:
+      let ent = normalize(jdata.testData.entData.accError, Ent)
+      let fips20k = normalize(jdata.testData.fipsData.failed20kBlocks, Fips20k)
+      if (entFilter.isSome and ent > entFilter.get) or
+        (fipsFilter.isSome and fips20k > fipsFilter.get):
+        continue
+      plotData.config.add $k.splitPath.head.splitPath.tail
+      plotData.ent.add normalize(jdata.testData.entData.accError, Ent)
+      plotData.fips20k.add normalize(jdata.testData.fipsData.failed20kBlocks, Fips20k)
+      plotData.fips.add normalize(jdata.testData.fipsData.failures, Fips)
       plotData.speed.add normalize(jdata.speedData.speedStats.mean, Speed)
       plotData.times.add normalize(jdata.speedData.timeStats.mean, Times)
       plotData.size.add normalize(jdata.sizeData.lcCount.float64, Size)
-      plotData.ent.add normalize(jdata.testData.entData.accError, Ent)
-      plotData.fips.add normalize(jdata.testData.fipsData.failures, Fips)
-      plotData.fips20k.add normalize(jdata.testData.fipsData.failed20kBlocks, Fips20k)
+      plotData.dieHarderFailed.add normalize(
+          jdata.testData.dieHarderData.failed, DieHarderFailed)
+      plotData.dieHarderWeak.add normalize(jdata.testData.dieHarderData.weak, DieHarderWeak)
+      plotData.dieHarderPassed.add normalize(
+          jdata.testData.dieHarderData.passed, DieHarderPassed)
     else:
+      let ent = jdata.testData.entData.accError
+      let fips20k = jdata.testData.fipsData.failed20kBlocks
+      if (entFilter.isSome and ent > entFilter.get) or
+        (fipsFilter.isSome and fips20k > fipsFilter.get):
+        continue
+      plotData.config.add $k.splitPath.head.splitPath.tail
       plotData.speed.add jdata.speedData.speedStats.mean / 1000
       plotData.times.add jdata.speedData.timeStats.mean
       plotData.size.add jdata.sizeData.lcCount.float64
       plotData.ent.add jdata.testData.entData.accError
       plotData.fips.add jdata.testData.fipsData.failures
       plotData.fips20k.add jdata.testData.fipsData.failed20kBlocks
+      plotData.dieHarderFailed.add jdata.testData.dieHarderData.failed
+      plotData.dieHarderWeak.add jdata.testData.dieHarderData.weak
+      plotData.dieHarderPassed.add jdata.testData.dieHarderData.passed
 
   let speedUnit = if not normalizeEnable: " in kb/s" else: ""
   let timeUnit = if not normalizeEnable: " in seconds" else: ""
@@ -503,16 +692,41 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
     ),
   ]
 
+  if dieharder:
+    ds.add Trace[float64](
+      `type`: PlotType.Bar,
+      name: "Test (DieHarder Failed)",
+      ys: plotData.dieHarderFailed,
+      text: plotData.config,
+    )
+    ds.add Trace[float64](
+      `type`: PlotType.Bar,
+      name: "Test (DieHarder Weak)",
+      ys: plotData.dieHarderWeak,
+      text: plotData.config,
+    )
+    ds.add Trace[float64](
+      `type`: PlotType.Bar,
+      name: "Test (DieHarder Passed)",
+      ys: plotData.dieHarderPassed,
+      text: plotData.config,
+    )
+
   let normStr = if normalizeEnable: "Normalized" else: ""
-  var layout = Layout(title: &"{normStr} Data For Comparison | path: {path}", width: 1200, height: 400,
-                      xaxis: Axis(title: ""),
-                      yaxis: Axis(title: ""),
-                      barmode: barmode,
-                      autosize: false)
+  var layout = Layout(
+    title: &"{normStr} Data For Comparison | path: {path}",
+    # width: 1200,
+      # height: 400,
+    xaxis: Axis(title: ""),
+    yaxis: Axis(title: ""),
+    barmode: barmode,
+    autosize: true
+  )
   var p = Plot[float64](layout: layout, traces: ds)
   p.show()
 
-proc generateConfigs*(sizeBounds = [0, 50], stepsize = [2,2,2,2]): int =
+proc generateConfigs*(sizeBounds = [0, 50], stepsize = [2, 2, 2, 2],
+    writeJson = false): int =
   var
     configs: seq[TrngConfig]
     c = TrngConfig(cells: 3, start: 3, inc: 2, delay: 2, post: true)
@@ -563,12 +777,67 @@ proc generateConfigs*(sizeBounds = [0, 50], stepsize = [2,2,2,2]): int =
       cInc.inc stepsize[0]
 
   result = configs.len
-  writeFile(&"{root}data/trng_configurations.json", configs.toJson)
+  if writeJson:
+    writeFile(&"{root}data/trng_configurations.json", configs.toJson)
 
-when isMainModule:
+proc updateJson*(path: string) =
+  for configdir in walkPattern(&"{root}{path}*/"):
+    for k in walkPattern(&"{configdir}[!m]*.json"):
+      try:
+        let oldData = k.readFile.fromJson(JsonData)
+
+        let newPiece = DieHarderData()
+
+        var newData = JsonData(
+          trngConfig: oldData.trngConfig,
+          speedData: oldData.speedData,
+          sizeData: oldData.sizeData,
+          testData: TestData(
+            entData: oldData.testData.entData,
+            fipsData: oldData.testData.fipsData,
+            dieHarderData: newPiece,
+          ),
+        )
+
+        k.writeFile(newData.toJson)
+      except JsonError:
+        echo "updateJson JsonError: " & k
+    generateMeanJsonData(configdir)
+
+proc updateDieharderData*(path: string) =
+  for k in walkPattern(&"{root}{path}*/[!m]*.json"):
+    try:
+      let oldData = k.readFile.fromJson(JsonData)
+      let newPiece = getDieHarderData(k[0..^6])
+      var newData = JsonData(
+        trngConfig: oldData.trngConfig,
+        speedData: oldData.speedData,
+        sizeData: oldData.sizeData,
+        testData: TestData(
+          entData: oldData.testData.entData,
+          fipsData: oldData.testData.fipsData,
+          dieHarderData: newPiece,
+        ),
+      )
+
+      k.writeFile(newData.toJson)
+    except JsonError:
+      echo k
+
+# when isMainModule:
   # let configs = readFile(&"{root}data/trng_configurations.json").fromJson(seq[TrngConfig])
   # echo calcInverterCount(configs[0])
-  echo generateConfigs([0,100], [2,2,2,2])
-  # 95
-  # 1118
-  # 1213
+  # echo generateConfigs([1200,1204], [2,2,2,1000], true)
+
+  # echo generateConfigs([0,100], [2,2,2,2])
+  # echo generateConfigs([100,150], [2,6,6,6])
+  # echo generateConfigs([150,200], [2,6,6,6])
+  # echo generateConfigs([200,250], [2,6,6,6])
+  # echo generateConfigs([500,504], [2,2,2,1000], true)
+  # echo generateConfigs([1200,1204], [2,2,2,1000], true)
+
+  # for k in walkPattern(&"{root}data/new/10_6400/3_15_8_32_true/0.bin"):
+
+  # updateDieharderData("data/new/10_6400/")
+
+  # updateJson("data/new/40_100/")

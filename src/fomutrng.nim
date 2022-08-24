@@ -3,7 +3,8 @@ import std/[strutils]
 import ./common
 import ./analyse
 
-proc trng_build(cells = 3, start = 3, inc = 2, delay = 2, post_disable = false): int =
+proc trng_build(cells = 3, start = 3, inc = 2, delay = 2,
+    post_disable = false): int =
   ## convert the neoTRNG.vhd file to neoTRNG.v, because the toolchain needs verilog
   common.trng_build(cells, start, inc, delay, not post_disable)
 
@@ -21,15 +22,41 @@ proc reset(): int =
   let port = newSerialPort(portName)
   port.reset
 
-proc run(size = 1024, mode = Trng, file = ""): int =
+proc stop(): int =
+  ## reset the fomu to the boot image, making it flashable again
+  setPortName()
+  let port = newSerialPort(portName)
+  port.stop
+
+proc run(size = 1024, mode = Trng, file = "", hex = false): int =
   ## collect <size> bytes using <mode> and stream to stdout or <file>.bin
   setPortName()
   let port = newSerialPort(portName)
 
-  port.run(size, mode,
-    if file.len == 0: none string else: some file)
+  port.run(
+    size,
+    mode,
+    if file.len == 0: none string else: some(file),
+    false,
+    hex,
+  )
+
+
 
 when isMainModule:
+  import cligen/argcvt
+  # for cligen options compatibility
+  proc argParse[T](dst: var Option[T], dfl: Option[T],
+                   a: var ArgcvtParams): bool =
+    var uw: T # An unwrapped value
+    if argParse(uw, (if dfl.isSome: dfl.get else: uw), a):
+      dst = option(uw)
+      return true
+
+  # for cligen options compatibility
+  proc argHelp[T](dfl: Option[T], a: var ArgcvtParams): seq[string] =
+    @[a.argKeys, $T, (if dfl.isSome: $dfl.get else: "NONE")]
+
   setRoot()
 
   import cligen
@@ -40,10 +67,11 @@ when isMainModule:
     "inc": "number of additional inverters in next cell (short path), has to be even",
     "start": "additional inverters to form cell's long path, has to be even",
     "post_disable": "disable post-processing for advanced whitening",
-    }], 
+    }],
     [fomutrng.binary_build],
     [fomutrng.flash],
     [fomutrng.reset],
+    [fomutrng.stop],
     [fomutrng.run, help = {
     "size": "amount of collected bytes",
     "mode": "'t' for trng 'c' for counter (debugging)",
@@ -52,4 +80,5 @@ when isMainModule:
     [gatherData],
     # [plotTimes],
     [plotDataCompare],
+    [updateDieharderData],
     )

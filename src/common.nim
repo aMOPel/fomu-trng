@@ -1,4 +1,4 @@
-import std/[math, os, osproc, streams, strformat, options]
+import std/[math, os, osproc, streams, strformat, strutils, options]
 import serial
 
 export serial
@@ -43,8 +43,15 @@ proc reset*(port: SerialPort) =
 
   ss.write(Reset)
 
+proc stop*(port: SerialPort) =
+  port.open(50, Parity.None, 8, StopBits.One)
+  let ss = newSerialStream(port, false)
+  defer: close(ss)
+
+  ss.write(Idle)
+
 proc run*(port: SerialPort, data_size: int, mode = Trng,
-    file_name = none string, buffered = false) =
+    file_name = none string, buffered = false, hex = false) =
   ## read usb data according to `data_size` and optionally stream it into a file
 
   port.open(50, Parity.None, 8, StopBits.One)
@@ -67,8 +74,12 @@ proc run*(port: SerialPort, data_size: int, mode = Trng,
     fs = newFileStream(stdout)
   defer: fs.close()
 
-  for _ in 0..<iterations:
-    fs.write ss.readStr(chunkSize)
+  if hex:
+    for _ in 0..<iterations:
+      fs.write ss.readStr(chunkSize).escape
+  else:
+    for _ in 0..<iterations:
+      fs.write ss.readStr(chunkSize)
 
   ss.write(Idle)
 

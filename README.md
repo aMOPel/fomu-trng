@@ -25,7 +25,17 @@ git clone https://github.com/aMOPel/fomu-trng.git
   You need to add the binaries to the PATH.
   Instructions are [here](https://github.com/YosysHQ/oss-cad-suite-build#installation)
 
-* `versions` Things were only tested with the version numbers specified, other versions might work too
+* `FOMU` 
+  This was only tested on the PVT version of the FOMU.
+  When in doubt, look [here](https://workshop.fomu.im/en/latest/requirements/hardware.html) to find out what FOMU version you have.
+
+* `bootloader` 
+  This was only tested with foboot v2.0.3.
+  [Here](https://workshop.fomu.im/en/latest/bootloader.html) is a guide to update the bootloader.
+
+* `versions` Things were only tested with the version numbers specified, other versions might work too.
+
+* `no USB Hub` Do not use the fomutrng over a USB Hub. See [Known Issues](#known-issues).
 
 ### For Basic Usage:
 __To flash the fomu:__
@@ -103,7 +113,7 @@ nimble install -l -y
 
 ## Quickstart
 
-* `flash` The fomu_trng binary on the fomu (assuming [requirements](#Requirements) are in place, the fomu is plugged in and flashable)
+* `flash` The fomu_trng binary on the fomu (assuming [requirements](#requirements) are in place, the fomu is plugged in and flashable)
 ```sh
 ./bin/fomutrng flash
 ```
@@ -206,3 +216,9 @@ NUM_INV_INC   = 2    (just called 'inc')
 NUM_INV_DELAY = 2    (just called 'delay')
 POST_PROC_EN  = true (just called 'post')
 ```
+
+# Known Issues
+
+1. When the fomutrng shares a __USB Hub__ with other devices, while sending a lot of data to the host PC, the fomutrng can temporarily disconnect the other devices.
+2. When doing repeated `fomutrng run`, some bytes are sent by fomutrng, but never read by the host, and thus __lost__. This happens because the fomutrng keeps sending
+after the host PC sent the signal to stop. It takes a few cycles until the fomutrng actually reacts and ceases operation. This should not pose a problem for this use case.
