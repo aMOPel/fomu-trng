@@ -41,8 +41,6 @@ proc run(size = 1024, mode = Trng, file = "", hex = false): int =
     hex,
   )
 
-
-
 when isMainModule:
   import cligen/argcvt
   # for cligen options compatibility
@@ -80,5 +78,6 @@ when isMainModule:
     [gatherData],
     # [plotTimes],
     [plotDataCompare],
+    [plotConfigSpace],
     [updateDieharderData],
     )

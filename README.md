@@ -6,7 +6,7 @@ sending random bytes over USB.
 It uses the [neoTRNG](https://github.com/stnolting/neoTRNG) as the TRNG
 and [muacm](https://github.com/no2fpga/no2muacm) for USB data transfer (over USB CDC ACM).
 
-:warning:__WARNING__:warning:: This project is __not__ built for security critical applications.
+:warning:**WARNING**:warning:: This project is **not** built for security critical applications.
 Use at your own risk.
 
 # Installation
@@ -17,64 +17,71 @@ git clone https://github.com/aMOPel/fomu-trng.git
 
 ## Requirements:
 
-* `linux` This was only tested on Ubuntu 20.04, your milage may vary.
+- `linux` This was only tested on Ubuntu 20.04, your milage may vary.
 
-* `oss-cad-suite`
+- `oss-cad-suite`
   You can get it for example in [here](https://github.com/YosysHQ/oss-cad-suite-build/releases/tag/2022-06-09).
   Other releases might work too.
   You need to add the binaries to the PATH.
   Instructions are [here](https://github.com/YosysHQ/oss-cad-suite-build#installation)
 
-* `FOMU` 
+- `FOMU`
   This was only tested on the PVT version of the FOMU.
   When in doubt, look [here](https://workshop.fomu.im/en/latest/requirements/hardware.html) to find out what FOMU version you have.
 
-* `bootloader` 
+- `bootloader`
   This was only tested with foboot v2.0.3.
   [Here](https://workshop.fomu.im/en/latest/bootloader.html) is a guide to update the bootloader.
 
-* `versions` Things were only tested with the version numbers specified, other versions might work too.
+- `versions` Things were only tested with the version numbers specified, other versions might work too.
 
-* `no USB Hub` Do not use the fomutrng over a USB Hub. See [Known Issues](#known-issues).
+- `no USB Hub` Do not use the fomutrng over a USB Hub. See [Known Issues](#known-issues).
 
 ### For Basic Usage:
-__To flash the fomu:__
 
-* `dfu-util` (0.11) included in the __oss-cad-suite__
+**To flash the fomu:**
 
-* `udev` It might be necessary to set up a `udev` rule to be able to flash the
-fomu as an unprivileged user. Read more
-[here](https://workshop.fomu.im/en/latest/requirements/drivers.html?highlight=plugdev#steps-to-set-up-udev-rulet)
+- `dfu-util` (0.11) included in the **oss-cad-suite**
 
-__To run the trng:__
+- `udev` It might be necessary to set up a `udev` rule to be able to flash the
+  fomu as an unprivileged user. Read more
+  [here](https://workshop.fomu.im/en/latest/requirements/drivers.html?highlight=plugdev#steps-to-set-up-udev-rulet)
 
-* `dialout` It might be necessary to do
+**To run the trng:**
+
+- `dialout` It might be necessary to do
+
 ```sh
 sudo adduser $USER dialout
 ```
+
 to get around the `permission denied error` when attempting to write to the ACM port.
 Read more [here](https://pyserial.readthedocs.io/en/latest/appendix.html?highlight=permission#faq).
 
-* `pyserial` is used in `./bin/fomutrng` to automatically pick the right ACM port. 
-Follow the next step to install the python dependencies into a venv __or__:
+- `pyserial` is used in `./bin/fomutrng` to automatically pick the right ACM port.
+  Follow the next step to install the python dependencies into a venv **or**:
+
 ```sh
 pip3 install pyserial
 ```
 
 ### For Developing
-__To rebuild the fomu_trng binary:__
+
+**To rebuild the fomu_trng binary:**
 
 _(binary is prebuilt [here](build/top.bin))_
 
 1. `global python dependencies` This installs the python dependencies specified in `requirements.txt` globally
-```sh 
+
+```sh
 pip3 install -r requirements.txt
 ```
 
-__OR__ 
+**OR**
 
 1. `local python dependencies` This installs the python dependencies specified in `requirements.txt` (project local) into `./venv/`
-```sh 
+
+```sh
 python3 -m venv ./venv
 source ./venv/bin/activate
 pip3 install -r requirements.txt
@@ -82,14 +89,15 @@ pip3 install -r requirements.txt
 
 `activate venv` Since this works with python venv you need to activate the venv every time
 before using the python files. (this includes the nim cli)
+
 ```sh
 source ./venv/bin/activate
 ```
 
 2. `yosys` (0.17+94), `next-pnr-ice40`(0.3-33-g2da7caf6),
-  probably other things, all from the `oss-cad-suite`
+   probably other things, all from the `oss-cad-suite`
 
-__To retranspile the TRNG to verilog:__
+**To retranspile the TRNG to verilog:**
 
 _(The default configuration is pretranspiled [here](src/neoTRNG/neoTRNG.v))_
 
@@ -98,13 +106,14 @@ The yosys support for VHDL seems to only be included in the non-free
 thus you need to manually transpile the `neoTRNG.vhd` to `neoTRNG.v` with `ghdl`
 every time you want to change the configuration of the TRNG.
 
-* `ghdl` (3.0.0-dev) included in the oss-cad-suite
+- `ghdl` (3.0.0-dev) included in the oss-cad-suite
 
-__To recompile the nim files:__
+**To recompile the nim files:**
 
 _(binaries are prebuilt [here](bin/))_
 
-* `nim dependencies` This installs the nimble dependencies specified in `fomu-trng.nimble` (project local) into `./nimbledeps/`
+- `nim dependencies` This installs the nimble dependencies specified in `fomu-trng.nimble` (project local) into `./nimbledeps/`
+
 ```sh
 nimble install -l -y
 ```
@@ -113,35 +122,44 @@ nimble install -l -y
 
 ## Quickstart
 
-* `flash` The fomu_trng binary on the fomu (assuming [requirements](#requirements) are in place, the fomu is plugged in and flashable)
+- `flash` The fomu_trng binary on the fomu (assuming [requirements](#requirements) are in place, the fomu is plugged in and flashable)
+
 ```sh
 ./bin/fomutrng flash
 ```
-* `run` Get trng data streamed to stdout
+
+- `run` Get trng data streamed to stdout
+
 ```sh
 ./bin/fomutrng run
 ```
+
 or
-* `run` Get trng data streamed into a file
+
+- `run` Get trng data streamed into a file
+
 ```sh
 ./bin/fomutrng run --size 1000000 --file filename
 ```
 
-* `global cli` If you want to use the cli from anywhere, put this in your `~/.profile` (or similar):
+- `global cli` If you want to use the cli from anywhere, put this in your `~/.profile` (or similar):
+
 ```sh
 # this FOMU_TRNG_ROOT env variable is used by the cli, otherwise it uses relative paths
 export FOMU_TRNG_ROOT=path/to/fomu-trng
 export PATH=$FOMU_TRNG_ROOT/bin:$PATH
 ```
+
 Then you can use it like this:
 
 ```sh
 fomutrng run
 ```
 
-## Full Usage 
+## Full Usage
 
 `bin/fomutrng` exposes these commands among others (see `./bin/fomutrng --help` and `./bin/fomutrng <subcommand> --help`):
+
 ```
   trng_build    convert the neoTRNG.vhd file to neoTRNG.v, because the toolchain needs verilog
   binary_build  run the build scripts from litex to build the flashable binary for the fomu
@@ -171,7 +189,7 @@ dfu-util -D ./build/top.bin
 # get trng data (assuming /dev/ttyACM0 is the right port and the fomu_trng is flashed)
 echo 't' > /dev/ttyACM0
 dd if=/dev/ttyACM0 of=trng.bin bs=1 count=1000 iflag=fullblock
-# or 
+# or
 # cat /dev/ttyACM0 | <other_command>
 echo 'i' > /dev/ttyACM0
 ```
@@ -188,14 +206,14 @@ and it's translation to verilog `neoTRNG.v`.
 
 `bin/fomutrng` is an executable cli (built for linux amd64), meant to ease the usage of the fomu_trng.
 
-`src/analyse.nim` holds other functionality (also usable over the cli) I used for data collection and analysis. 
+`src/analyse.nim` holds other functionality (also usable over the cli) I used for data collection and analysis.
 
 `src/get_right_acm_port.py` is a little helper python script (used in `bin/fomutrng`) that picks the right ACM port.
 
-__USB ACM Interface__
+**USB ACM Interface**
 
-The fomu_trng can be controlled with a small set of control characters written to the 
-ACM port of the fomu_trng (usually `/dev/ttyACM0` on linux). 
+The fomu_trng can be controlled with a small set of control characters written to the
+ACM port of the fomu_trng (usually `/dev/ttyACM0` on linux).
 
 The fomu_trng implements a simple FSM. The states correlate with a LED color and behaviour.
 ||idle|counter|trng|booting|
@@ -205,10 +223,11 @@ The fomu_trng implements a simple FSM. The states correlate with a LED color and
 |transitions|'t'-> trng <br> 'c'-> counter|'i'-> idle|'i'-> idle|automatic|
 |alternative commands|`echo 't' > /dev/ttyACM0` <br> `echo 'c' > /dev/ttyACM0`|`echo 'i' > /dev/ttyACM0`|`echo 'i' > /dev/ttyACM0`||
 
-__TRNG Configurations__
+**TRNG Configurations**
 
 Read more about the [neoTRNG](https://github.com/stnolting/neoTRNG).
 The default configuration used in this repo is:
+
 ```
 NUM_CELLS     = 3    (just called 'cells')
 NUM_INV_START = 3    (just called 'start')
@@ -219,6 +238,6 @@ POST_PROC_EN  = true (just called 'post')
 
 # Known Issues
 
-1. When the fomutrng shares a __USB Hub__ with other devices, while sending a lot of data to the host PC, the fomutrng can temporarily disconnect the other devices.
-2. When doing repeated `fomutrng run`, some bytes are sent by fomutrng, but never read by the host, and thus __lost__. This happens because the fomutrng keeps sending
-after the host PC sent the signal to stop. It takes a few cycles until the fomutrng actually reacts and ceases operation. This should not pose a problem for this use case.
+1. When the fomutrng shares a **USB Hub** with other devices, while sending a lot of data to the host PC, the fomutrng can temporarily disconnect the other devices.
+2. When doing repeated `fomutrng run`, some bytes are sent by fomutrng, but never read by the host, and thus **lost**. This happens because the fomutrng keeps sending
+   after the host PC sent the signal to stop. It takes a few cycles until the fomutrng actually reacts and ceases operation. This should not pose a problem for this use case.

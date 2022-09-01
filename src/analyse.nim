@@ -604,7 +604,7 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
 
   initMinsMaxs(path)
 
-  for i, k in enumerate(walkPattern(&"{root}{path}*/mean.json")):
+  for i, k in enumerate(walkPattern(&"{root}{path}*/0.json")):
     let jdata = readFile(k).fromJson(JsonData)
 
     if not dieharder:
@@ -725,11 +725,11 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
   var p = Plot[float64](layout: layout, traces: ds)
   p.show()
 
-proc generateConfigs*(sizeBounds = [0, 50], stepsize = [2, 2, 2, 2],
+proc generateConfigs*(sizeBounds = [0, 50], stepsize = [1, 2, 2, 2],
     writeJson = false): int =
   var
     configs: seq[TrngConfig]
-    c = TrngConfig(cells: 3, start: 3, inc: 2, delay: 2, post: true)
+    c = TrngConfig(cells: 3, start: 1, inc: 2, delay: 2, post: true)
 
     cInc: int
     sInc: int
@@ -805,7 +805,8 @@ proc updateJson*(path: string) =
     generateMeanJsonData(configdir)
 
 proc updateDieharderData*(path: string) =
-  for k in walkPattern(&"{root}{path}*/[!m]*.json"):
+  for k in walkPattern(&"{root}{path}*/0.json"):
+  # for k in walkPattern(&"{root}{path}*/[!m]*.json"):
     try:
       let oldData = k.readFile.fromJson(JsonData)
       let newPiece = getDieHarderData(k[0..^6])
@@ -824,20 +825,57 @@ proc updateDieharderData*(path: string) =
     except JsonError:
       echo k
 
-# when isMainModule:
+proc plotConfigSpace*(lowerBound = 0d, upperBound = 1200d, xStepSize = 1d) =
+  var x = lowerBound
+  var y: float64
+  var xs: seq[float64]
+  var ys: seq[float64]
+
+  while true:
+    y = generateConfigs([lowerBound.int,x.int]).float64
+    if x >= upperBound: break
+    else:
+      xs.add x
+      ys.add y
+      x += xStepSize
+
+  var ds: seq[Trace[float64]]
+  ds.add Trace[float64](
+    `type`: PlotType.Scatter,
+    name: "config space",
+    xs: xs,
+    ys: ys,
+  )
+
+  var layout = Layout(
+    title: &"config space",
+    # width: 1200,
+    # height: 400,
+    xaxis: Axis(title: "Size (Inverter Count)"),
+    yaxis: Axis(title: "Permutations"),
+    autosize: true
+  )
+
+  var p = Plot[float64](layout: layout, traces: ds)
+
+  p.show()
+
+
+when isMainModule:
   # let configs = readFile(&"{root}data/trng_configurations.json").fromJson(seq[TrngConfig])
   # echo calcInverterCount(configs[0])
   # echo generateConfigs([1200,1204], [2,2,2,1000], true)
 
-  # echo generateConfigs([0,100], [2,2,2,2])
-  # echo generateConfigs([100,150], [2,6,6,6])
-  # echo generateConfigs([150,200], [2,6,6,6])
-  # echo generateConfigs([200,250], [2,6,6,6])
-  # echo generateConfigs([500,504], [2,2,2,1000], true)
-  # echo generateConfigs([1200,1204], [2,2,2,1000], true)
-
-  # for k in walkPattern(&"{root}data/new/10_6400/3_15_8_32_true/0.bin"):
+  
+  # echo generateConfigs([0,100], [2,2,2,2])       # 95
+  # echo generateConfigs([100,150], [2,6,6,6])     # 26
+  # echo generateConfigs([150,200], [2,6,6,6])     # 47
+  # echo generateConfigs([200,250], [2,6,6,6])     # 49
+  # echo generateConfigs([500,504], [2,2,2,1000])  # 48
+  # echo generateConfigs([796,800], [2,2,2,1000])  # 19
+  # echo generateConfigs([1200,1204], [2,2,2,1000])# 13
 
   # updateDieharderData("data/new/10_6400/")
 
   # updateJson("data/new/40_100/")
+  plotConfigSpace([0d,200d])
