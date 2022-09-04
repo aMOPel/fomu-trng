@@ -53,7 +53,7 @@ type
     Weak
     Passed
 
-  pValStatus = tuple[pValue: float64, status: Status]
+  pValStatus = tuple[pValue: float64, status: Status, rewinds: int]
 
   DieHarderData = object
     failed*: float64
@@ -267,20 +267,20 @@ proc getFipsData(fileName: string): FipsData =
   else:
     assert false, "fips fail\n" & dataStr
 
-proc getDieHarderData*(fileName: string): DieHarderData =
-  let dataStr = execCmdEx(
-    &"dieharder -a -g 201 -f {fileName}.bin -c ',' -D line_header -D test_name -D pvalues -D assessment").output
-  var s = newStringStream(dataStr)
+proc parseDieHarderData*(s: Stream): DieHarderData =
   var p: CsvParser
-  p.open(s, fileName)
+  p.open(s, "dummy filename")
   defer: p.close()
   p.readHeaderRow()
   var temp: seq[seq[pValStatus]]
   var prevTestName: string
+  var rewinds: int
+  var matches: array[1, string]
   while p.readRow():
     print p.row
     if p.row.len < 3:
-      continue
+      if p.row[0].match(re".*rewound (\d*) times.*", matches):
+        rewinds = matches[0].parseInt
 
     var currentTestName = p.row[0]
     let newPValStatus = (
@@ -294,7 +294,8 @@ proc getDieHarderData*(fileName: string): DieHarderData =
         Status.Failed
       else:
         echo "WTF" & p.row[2]
-        Status.None
+        Status.None,
+      rewinds: rewinds,
     )
     if currentTestName != prevTestName:
       temp.add @[newPValStatus]
@@ -349,6 +350,11 @@ proc getDieHarderData*(fileName: string): DieHarderData =
             of Weak: result.weak += 1.0
             of Passed: result.passed += 1.0
 
+proc getDieHarderData*(fileName: string): DieHarderData =
+  let dataStr = execCmdEx(
+    &"dieharder -a -g 201 -f {fileName}.bin -c ',' -D line_header -D test_name -D pvalues -D assessment").output
+  var s = newStringStream(dataStr)
+  return parseDieHarderData(s)
 
 proc getTestData(fileName: string, dieharder = false): TestData =
   ## get EntData and FipsData
@@ -582,7 +588,7 @@ proc normalize(x: float64, kind: Data): float64 =
 
 proc plotDataCompare*(path: string, normalizeEnable = false,
     barmode = BarMode.Unset, entFilter = none float64,
-    fipsFilter = none float64, dieHarderEnableForce = false) =
+    fipsFilter = none float64, dieHarderEnableForce = false, meanOff = false) =
   ## plot times, size, ent, and fips data in for every json in path
   ## if normalizeEnable: normalizes data using `normalize()` so all datapoints are between 0 and 1
   ## barmode = "stack" to stack the bars
@@ -604,7 +610,10 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
 
   initMinsMaxs(path)
 
-  for i, k in enumerate(walkPattern(&"{root}{path}*/0.json")):
+  let pathPattern = if meanOff: &"{root}{path}*/mean.json"
+    else: &"{root}{path}*/*.json"
+
+  for i, k in enumerate(walkPattern(pathPattern)):
     let jdata = readFile(k).fromJson(JsonData)
 
     if not dieharder:
@@ -621,7 +630,7 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
       if (entFilter.isSome and ent > entFilter.get) or
         (fipsFilter.isSome and fips20k > fipsFilter.get):
         continue
-      plotData.config.add $k.splitPath.head.splitPath.tail
+      plotData.config.add if meanOff: $k.splitPath.head.splitPath.tail else: $k.splitPath.tail
       plotData.ent.add normalize(jdata.testData.entData.accError, Ent)
       plotData.fips20k.add normalize(jdata.testData.fipsData.failed20kBlocks, Fips20k)
       plotData.fips.add normalize(jdata.testData.fipsData.failures, Fips)
@@ -639,7 +648,7 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
       if (entFilter.isSome and ent > entFilter.get) or
         (fipsFilter.isSome and fips20k > fipsFilter.get):
         continue
-      plotData.config.add $k.splitPath.head.splitPath.tail
+      plotData.config.add if meanOff: $k.splitPath.head.splitPath.tail else: $k.splitPath.tail
       plotData.speed.add jdata.speedData.speedStats.mean / 1000
       plotData.times.add jdata.speedData.timeStats.mean
       plotData.size.add jdata.sizeData.lcCount.float64
@@ -650,7 +659,7 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
       plotData.dieHarderWeak.add jdata.testData.dieHarderData.weak
       plotData.dieHarderPassed.add jdata.testData.dieHarderData.passed
 
-  let speedUnit = if not normalizeEnable: " in kb/s" else: ""
+  let speedUnit = if not normalizeEnable: " in kB/s" else: ""
   let timeUnit = if not normalizeEnable: " in seconds" else: ""
 
   ds = @[
@@ -686,7 +695,7 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
     ),
     Trace[float64](
       `type`: PlotType.Bar,
-      name: "Test (Fips 140-2 20kb Block Failures)",
+      name: "Test (Fips 140-2 20kB Block Failures)",
       ys: plotData.fips20k,
       text: plotData.config,
     ),
@@ -713,8 +722,10 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
     )
 
   let normStr = if normalizeEnable: "Normalized" else: ""
+  let entFilterStr = if entFilter.isSome: &"Ent <= {entFilter.get}" else: ""
+  let fipsFilterStr = if fipsFilter.isSome: &"Fips 20k <= {fipsFilter.get}" else: ""
   var layout = Layout(
-    title: &"{normStr} Data For Comparison | path: {path}",
+    title: &"Data For Comparison | path: {path} | {normStr} | Filters: {entFilterStr} , {fipsFilterStr}",
     # width: 1200,
       # height: 400,
     xaxis: Axis(title: ""),
@@ -725,7 +736,7 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
   var p = Plot[float64](layout: layout, traces: ds)
   p.show()
 
-proc generateConfigs*(sizeBounds = [0, 50], stepsize = [1, 2, 2, 2],
+proc generateConfigs*(sizeBounds = [0, 50], stepSize = [1, 2, 2, 2],
     writeJson = false): int =
   var
     configs: seq[TrngConfig]
@@ -754,27 +765,27 @@ proc generateConfigs*(sizeBounds = [0, 50], stepsize = [1, 2, 2, 2],
             if not (invCount <= sizeBounds[0]):
               configs.add c
             dcount.inc
-            dInc.inc stepsize[3]
+            dInc.inc stepSize[3]
 
         if dcount == 0:
           iInc = 0
           break
         else:
           icount.inc
-          iInc.inc stepsize[2]
+          iInc.inc stepSize[2]
 
       if icount == 0:
         sInc = 0
         break
       else:
         scount.inc
-        sInc.inc stepsize[1]
+        sInc.inc stepSize[1]
     if scount == 0:
       cInc = 0
       break
     else:
       ccount.inc
-      cInc.inc stepsize[0]
+      cInc.inc stepSize[0]
 
   result = configs.len
   if writeJson:
