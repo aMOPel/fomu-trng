@@ -6,6 +6,7 @@ import plotly
 import jsony
 import notification
 import print
+import nimdata
 
 import common
 
@@ -586,9 +587,11 @@ proc normalize(x: float64, kind: Data): float64 =
   ## normalize `x` of `kind` using (x - min)/(max - min), so x is between 0 and 1
   (x - minsMaxs.mins[kind]) / (minsMaxs.maxs[kind] - minsMaxs.mins[kind])
 
+type ChooseMode = enum Mean = "m" , Star = "s", Zero = "0"
 proc plotDataCompare*(path: string, normalizeEnable = false,
     barmode = BarMode.Unset, entFilter = none float64,
-    fipsFilter = none float64, dieHarderEnableForce = false, meanOff = false) =
+    fipsFilter = none float64, dieHarderEnableForce = false,
+    chooseMode = ChooseMode.Mean) =
   ## plot times, size, ent, and fips data in for every json in path
   ## if normalizeEnable: normalizes data using `normalize()` so all datapoints are between 0 and 1
   ## barmode = "stack" to stack the bars
@@ -610,11 +613,16 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
 
   initMinsMaxs(path)
 
-  let pathPattern = if meanOff: &"{root}{path}*/mean.json"
-    else: &"{root}{path}*/*.json"
+  let pathPattern = case chooseMode
+    of Mean: &"{root}{path}*/mean.json"
+    of Star: &"{root}{path}*.json"
+    of Zero: &"{root}{path}*/0.json"
+
+  var csv = "config,speed,times,ent,fips,fips20k,dieHarderFailed,dieHarderWeak,dieHarderPassed\n"
 
   for i, k in enumerate(walkPattern(pathPattern)):
     let jdata = readFile(k).fromJson(JsonData)
+    let c = jdata.trngConfig
 
     if not dieharder:
       if jdata.testData.dieHarderData.failed +
@@ -630,7 +638,7 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
       if (entFilter.isSome and ent > entFilter.get) or
         (fipsFilter.isSome and fips20k > fipsFilter.get):
         continue
-      plotData.config.add if meanOff: $k.splitPath.head.splitPath.tail else: $k.splitPath.tail
+      plotData.config.add &"{c.cells}_{c.start}_{c.inc}_{c.delay}"
       plotData.ent.add normalize(jdata.testData.entData.accError, Ent)
       plotData.fips20k.add normalize(jdata.testData.fipsData.failed20kBlocks, Fips20k)
       plotData.fips.add normalize(jdata.testData.fipsData.failures, Fips)
@@ -648,7 +656,8 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
       if (entFilter.isSome and ent > entFilter.get) or
         (fipsFilter.isSome and fips20k > fipsFilter.get):
         continue
-      plotData.config.add if meanOff: $k.splitPath.head.splitPath.tail else: $k.splitPath.tail
+
+      plotData.config.add &"{c.cells}_{c.start}_{c.inc}_{c.delay}"
       plotData.speed.add jdata.speedData.speedStats.mean / 1000
       plotData.times.add jdata.speedData.timeStats.mean
       plotData.size.add jdata.sizeData.lcCount.float64
@@ -659,6 +668,51 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
       plotData.dieHarderWeak.add jdata.testData.dieHarderData.weak
       plotData.dieHarderPassed.add jdata.testData.dieHarderData.passed
 
+      csv &= &"{c.cells}_{c.start}_{c.inc}_{c.delay}"
+      csv &= "," & $(jdata.speedData.speedStats.mean / 1000)
+      csv &= "," & $(jdata.speedData.timeStats.mean)
+      csv &= "," & $(jdata.sizeData.lcCount.float64)
+      csv &= "," & $(jdata.testData.entData.accError)
+      csv &= "," & $(jdata.testData.fipsData.failures)
+      csv &= "," & $(jdata.testData.fipsData.failed20kBlocks)
+      csv &= "," & $(jdata.testData.dieHarderData.failed)
+      csv &= "," & $(jdata.testData.dieHarderData.weak)
+      csv &= "," & $(jdata.testData.dieHarderData.passed)
+      csv &= "\n"
+
+  writeFile(&"{root}data/temp.csv", csv)
+
+  const schema = [
+    strCol("config"),
+    floatCol("speed"),
+    floatCol("times"),
+    floatCol("size"),
+    floatCol("ent"),
+    floatCol("fips"),
+    floatCol("fips20k"),
+    floatCol("dieHarderFailed"),
+    floatCol("dieHarderWeak"),
+    floatCol("dieHarderPassed"),
+  ]
+
+  let dfRawText = DF.fromFile(&"{root}data/temp.csv")
+
+  let df = dfRawText.map(schemaParser(schema, ',')).cache()
+  let sortedDf = df.sort(record => record["size"], SortOrder.Ascending)
+
+  var plotData1: PlotData
+  for i in sortedDf.collect:
+    plotData1.config.add i[0]
+    plotData1.speed.add i[1]
+    plotData1.times.add i[2]
+    plotData1.size.add i[3]
+    plotData1.ent.add i[4]
+    plotData1.fips.add i[5]
+    plotData1.fips20k.add i[6]
+    plotData1.dieHarderFailed.add i[7]
+    plotData1.dieHarderWeak.add i[8]
+    plotData1.dieHarderPassed.add i[9]
+
   let speedUnit = if not normalizeEnable: " in kB/s" else: ""
   let timeUnit = if not normalizeEnable: " in seconds" else: ""
 
@@ -666,38 +720,38 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
     Trace[float64](
       `type`: PlotType.Bar,
       name: &"Speed (Transmission Speed{speedUnit})",
-      ys: plotData.speed,
-      text: plotData.config,
+      ys: plotData1.speed,
+      text: plotData1.config,
     ),
     Trace[float64](
       `type`: PlotType.Bar,
       name: &"Time (Transmission Times{timeUnit})",
-      ys: plotData.times,
-      text: plotData.config,
+      ys: plotData1.times,
+      text: plotData1.config,
     ),
     Trace[float64](
       `type`: PlotType.Bar,
       name: "Size (Logic Cell Count)",
-      ys: plotData.size,
-      text: plotData.config,
+      ys: plotData1.size,
+      text: plotData1.config,
     ),
     Trace[float64](
       `type`: PlotType.Bar,
       name: "Test (Ent Accumulated Error)",
-      ys: plotData.ent,
-      text: plotData.config,
+      ys: plotData1.ent,
+      text: plotData1.config,
     ),
     Trace[float64](
       `type`: PlotType.Bar,
       name: "Test (Fips 140-2 Test Failures)",
-      ys: plotData.fips,
-      text: plotData.config,
+      ys: plotData1.fips,
+      text: plotData1.config,
     ),
     Trace[float64](
       `type`: PlotType.Bar,
       name: "Test (Fips 140-2 20kB Block Failures)",
-      ys: plotData.fips20k,
-      text: plotData.config,
+      ys: plotData1.fips20k,
+      text: plotData1.config,
     ),
   ]
 
@@ -705,20 +759,20 @@ proc plotDataCompare*(path: string, normalizeEnable = false,
     ds.add Trace[float64](
       `type`: PlotType.Bar,
       name: "Test (DieHarder Failed)",
-      ys: plotData.dieHarderFailed,
-      text: plotData.config,
+      ys: plotData1.dieHarderFailed,
+      text: plotData1.config,
     )
     ds.add Trace[float64](
       `type`: PlotType.Bar,
       name: "Test (DieHarder Weak)",
-      ys: plotData.dieHarderWeak,
-      text: plotData.config,
+      ys: plotData1.dieHarderWeak,
+      text: plotData1.config,
     )
     ds.add Trace[float64](
       `type`: PlotType.Bar,
       name: "Test (DieHarder Passed)",
-      ys: plotData.dieHarderPassed,
-      text: plotData.config,
+      ys: plotData1.dieHarderPassed,
+      text: plotData1.config,
     )
 
   let normStr = if normalizeEnable: "Normalized" else: ""
@@ -795,10 +849,10 @@ proc updateJson*(path: string) =
   for configdir in walkPattern(&"{root}{path}*/"):
     for k in walkPattern(&"{configdir}[!m]*.json"):
       try:
-        let oldData = k.readFile.fromJson(JsonData)
+        let oldData = k.readFile.fromJson(OldJsonData)
 
         let newPiece = DieHarderData()
-
+        
         var newData = JsonData(
           trngConfig: oldData.trngConfig,
           speedData: oldData.speedData,
@@ -888,5 +942,7 @@ when isMainModule:
 
   # updateDieharderData("data/new/10_6400/")
 
-  # updateJson("data/new/40_100/")
-  plotConfigSpace([0d,200d])
+  updateJson("data/new/4_100/")
+  # plotConfigSpace([0d,200d])
+
+  # generateMeanJsonData("data/new/1000_100/5_55_12_2_true/")
